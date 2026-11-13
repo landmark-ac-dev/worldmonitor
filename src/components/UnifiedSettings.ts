@@ -1297,7 +1297,7 @@ export class UnifiedSettings {
         ${this.renderUpgradeSection()}
         <div id="usEnterpriseSeats">${this.enterpriseSeatsSection.renderContent()}</div>
         <ul class="us-list us-signout" role="list">
-          <li><button type="button" class="us-row" data-settings-signout><span class="us-row-text"><span class="us-row-title">Sign out</span></span></button></li>
+          <li><button type="button" class="us-row" data-settings-signout><span class="us-row-text"><span class="us-row-title">${escapeHtml(t('settings.signOut'))}</span></span></button></li>
         </ul>
         ${this.renderAccountDeletionSection()}
       `, 'account page; billing and seat sections escape their values'));

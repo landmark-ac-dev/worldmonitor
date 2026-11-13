@@ -266,6 +266,24 @@ describe('scroll on the phone sheet', () => {
     expect(modal().scrollTop).toBe(0);
   });
 
+  it('returns each page to its own offset in the desktop modal', () => {
+    setWidth(1280);
+    settings.open();
+    modal().scrollTop = 180;
+    row('display').click();
+    expect(modal().scrollTop).toBe(0);
+    modal().scrollTop = 120;
+
+    $<HTMLButtonElement>('[data-settings-back]')!.click();
+    expect(modal().scrollTop).toBe(180);
+
+    row('map').click();
+    expect(modal().scrollTop).toBe(0);
+    $<HTMLButtonElement>('[data-settings-back]')!.click();
+    row('display').click();
+    expect(modal().scrollTop).toBe(120);
+  });
+
   it('keeps the reader on the same page in place when an account change remounts it', () => {
     // A browser clamps the offset once the scrolled page leaves the DOM;
     // happy-dom has no layout, so model that clamp at removal.

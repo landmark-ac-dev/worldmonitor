@@ -33,6 +33,7 @@ import {
   type MountedSection,
   type NavEvent,
   type NavGroup,
+  type NavLayout,
   type NavState,
   type PreferenceSectionId,
   type RowSummary,
@@ -195,8 +196,8 @@ export class UnifiedSettings {
   private nav: NavState | null = null;
   /** Pages mounted this session. Each mounts on first visit and stays until close. */
   private readonly pages = new Map<SettingsSectionId, { el: HTMLElement; mounted: MountedSection }>();
-  /** Where the home list was scrolled when a page opened over it. */
-  private homeScroll = 0;
+  /** Where the home list and each page were last scrolled this session. */
+  private readonly scrollOffsets = new Map<SettingsSectionId | 'home', number>();
   private installCleanup: (() => void) | null = null;
   private legalLinkHandoffAttached = false;
   private activeSourceRegion = 'all';
@@ -1000,7 +1001,7 @@ export class UnifiedSettings {
 
   private startSession(): void {
     this.endSession();
-    this.homeScroll = 0;
+    this.scrollOffsets.clear();
     this.renderHome();
     this.attachLegalLinkHandoff();
     const installHost = this.overlay.querySelector<HTMLElement>('[data-pwa-install-entry]');
@@ -1149,13 +1150,15 @@ export class UnifiedSettings {
       return;
     }
     const modal = this.overlay.querySelector<HTMLElement>('.unified-settings-modal');
-    if (modal && prev?.page === null) this.homeScroll = modal.scrollTop;
+    if (modal && prev) this.scrollOffsets.set(prev.page ?? 'home', modal.scrollTop);
     this.nav = next;
     if (fx.leave) this.pages.get(fx.leave)?.mounted.leave?.();
     const entered = fx.enter ? this.ensurePage(fx.enter) : null;
     this.reflectNav();
-    // A page opens at its top; the home list returns to where it was left.
-    if (modal) modal.scrollTop = next.page === null ? this.homeScroll : 0;
+    // The phone sheet is a drill-in stack, so a page opens at its top there.
+    // The desktop modal returns every page to where it was left.
+    const drillIn = next.page !== null && this.navLayout() === 'sheet';
+    if (modal) modal.scrollTop = drillIn ? 0 : this.scrollOffsets.get(next.page ?? 'home') ?? 0;
     entered?.mounted.enter?.();
     if (entered) {
       entered.el.querySelector<HTMLElement>('.us-page-title')?.focus({ preventScroll: true });
@@ -1165,10 +1168,13 @@ export class UnifiedSettings {
     this.syncPageEntry();
   }
 
+  private navLayout(): NavLayout {
+    return isMobileDevice() ? 'sheet' : 'modal';
+  }
+
   /** Holds or releases the open page's history entry to match the page and layout. Idempotent. */
   private readonly syncPageEntry = (): void => {
-    const layout = isMobileDevice() ? 'sheet' : 'modal';
-    if (pageEntryEffect(this.nav, layout, this.historyRegistered) === 'hold') {
+    if (pageEntryEffect(this.nav, this.navLayout(), this.historyRegistered) === 'hold') {
       this.pageEntry ??= overlayHistory.openCancelable('settings-section', this.onPageEntryClosed);
     } else {
       this.releasePageEntry();
@@ -1212,7 +1218,7 @@ export class UnifiedSettings {
     this.reflectNav();
     // Removing the old page can clamp the scroller's offset. A reader who
     // stays on the same page keeps their place.
-    if (modal) modal.scrollTop = this.nav.page === before ? offset : this.homeScroll;
+    if (modal) modal.scrollTop = this.nav.page === before ? offset : this.scrollOffsets.get('home') ?? 0;
     if (runEnter) page?.mounted.enter?.();
     if (focusWasInside && !this.overlay.contains(document.activeElement)) {
       const target = page?.el.querySelector<HTMLElement>('.us-page-title')

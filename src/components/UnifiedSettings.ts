@@ -195,7 +195,8 @@ export class UnifiedSettings {
   private nav: NavState | null = null;
   /** Pages mounted this session. Each mounts on first visit and stays until close. */
   private readonly pages = new Map<SettingsSectionId, { el: HTMLElement; mounted: MountedSection }>();
-  private readonly scrollPositions = new Map<SettingsSectionId | 'home', number>();
+  /** Where the home list was scrolled when a page opened over it. */
+  private homeScroll = 0;
   private installCleanup: (() => void) | null = null;
   private legalLinkHandoffAttached = false;
   private activeSourceRegion = 'all';
@@ -988,7 +989,7 @@ export class UnifiedSettings {
 
   private startSession(): void {
     this.endSession();
-    this.scrollPositions.clear();
+    this.homeScroll = 0;
     this.renderHome();
     this.attachLegalLinkHandoff();
     const installHost = this.overlay.querySelector<HTMLElement>('[data-pwa-install-entry]');
@@ -1137,12 +1138,13 @@ export class UnifiedSettings {
       return;
     }
     const modal = this.overlay.querySelector<HTMLElement>('.unified-settings-modal');
-    if (modal && prev) this.scrollPositions.set(prev.page ?? 'home', modal.scrollTop);
+    if (modal && prev?.page === null) this.homeScroll = modal.scrollTop;
     this.nav = next;
     if (fx.leave) this.pages.get(fx.leave)?.mounted.leave?.();
     const entered = fx.enter ? this.ensurePage(fx.enter) : null;
     this.reflectNav();
-    if (modal) modal.scrollTop = this.scrollPositions.get(next.page ?? 'home') ?? 0;
+    // A page opens at its top; the home list returns to where it was left.
+    if (modal) modal.scrollTop = next.page === null ? this.homeScroll : 0;
     entered?.mounted.enter?.();
     if (entered) {
       entered.el.querySelector<HTMLElement>('.us-page-title')?.focus({ preventScroll: true });
@@ -1189,11 +1191,17 @@ export class UnifiedSettings {
    */
   private rebuild(runEnter: boolean): void {
     const focusWasInside = this.overlay.contains(document.activeElement);
+    const modal = this.overlay.querySelector<HTMLElement>('.unified-settings-modal');
+    const before = this.nav?.page ?? null;
+    const offset = modal?.scrollTop ?? 0;
     this.disposePages();
     this.nav = reduceNav(this.nav, { type: 'facts-changed' }, this.readFacts());
     this.renderHome();
     const page = this.nav.page ? this.ensurePage(this.nav.page) : null;
     this.reflectNav();
+    // Removing the old page can clamp the scroller's offset. A reader who
+    // stays on the same page keeps their place.
+    if (modal) modal.scrollTop = this.nav.page === before ? offset : this.homeScroll;
     if (runEnter) page?.mounted.enter?.();
     if (focusWasInside && !this.overlay.contains(document.activeElement)) {
       const target = page?.el.querySelector<HTMLElement>('.us-page-title')

@@ -250,3 +250,42 @@ describe('device Back on the phone sheet', () => {
     expect(browser.depth()).toBe(0);
   });
 });
+
+describe('scroll on the phone sheet', () => {
+  it('opens every page at its top and returns the list to where it was', () => {
+    settings.open();
+    modal().scrollTop = 180;
+    row('display').click();
+    expect(modal().scrollTop).toBe(0);
+    modal().scrollTop = 90;
+
+    browser.deviceBack();
+    expect(modal().scrollTop).toBe(180);
+
+    row('display').click();
+    expect(modal().scrollTop).toBe(0);
+  });
+
+  it('keeps the reader on the same page in place when an account change remounts it', () => {
+    // A browser clamps the offset once the scrolled page leaves the DOM;
+    // happy-dom has no layout, so model that clamp at removal.
+    let offset = 0;
+    Object.defineProperty(modal(), 'scrollTop', {
+      configurable: true,
+      get: () => offset,
+      set: (value: number) => { offset = value; },
+    });
+    const remove = Element.prototype.remove;
+    vi.spyOn(Element.prototype, 'remove').mockImplementation(function (this: Element) {
+      if (this.matches('.us-page:not([hidden])')) offset = 0;
+      remove.call(this);
+    });
+
+    settings.open('display');
+    modal().scrollTop = 240;
+    switchAccountTo(signedIn('user_b'));
+
+    expect(page('display')!.hidden).toBe(false);
+    expect(modal().scrollTop).toBe(240);
+  });
+});

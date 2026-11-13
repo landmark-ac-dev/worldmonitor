@@ -5150,6 +5150,9 @@
       "aiAgents": "Bağlı MCP istemcileri",
       "about": "Site bağlantıları, şartlar ve gizlilik"
     },
-    "signOut": "Çıkış yap"
+    "signOut": "Çıkış yap",
+    "search": {
+      "empty": "Eşleşen ayar yok"
+    }
   }
 }

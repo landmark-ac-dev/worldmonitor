@@ -5150,6 +5150,9 @@
       "aiAgents": "Verbonden MCP-clients",
       "about": "Sitelinks, voorwaarden en privacy"
     },
-    "signOut": "Afmelden"
+    "signOut": "Afmelden",
+    "search": {
+      "empty": "Geen instellingen gevonden"
+    }
   }
 }

@@ -5178,6 +5178,9 @@
       "aiAgents": "Clientes MCP conectados",
       "about": "Enlaces del sitio, términos y privacidad"
     },
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "search": {
+      "empty": "Ningún ajuste coincide"
+    }
   }
 }

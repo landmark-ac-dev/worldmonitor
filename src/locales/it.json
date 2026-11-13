@@ -5178,6 +5178,9 @@
       "aiAgents": "Client MCP collegati",
       "about": "Link del sito, termini e privacy"
     },
-    "signOut": "Esci"
+    "signOut": "Esci",
+    "search": {
+      "empty": "Nessuna impostazione corrispondente"
+    }
   }
 }

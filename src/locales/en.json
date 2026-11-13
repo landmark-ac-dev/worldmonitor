@@ -5149,6 +5149,9 @@
       "embeds": "Widgets for your own site",
       "aiAgents": "Connected MCP clients",
       "about": "Site links, terms and privacy"
+    },
+    "search": {
+      "empty": "No settings match"
     }
   }
 }

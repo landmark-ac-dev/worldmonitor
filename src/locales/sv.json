@@ -5150,6 +5150,9 @@
       "aiAgents": "Anslutna MCP-klienter",
       "about": "Webbplatslinks, villkor och sekretess"
     },
-    "signOut": "Logga ut"
+    "signOut": "Logga ut",
+    "search": {
+      "empty": "Inga inställningar matchar"
+    }
   }
 }

@@ -5206,6 +5206,9 @@
       "aiAgents": "Połączeni klienci MCP",
       "about": "Linki, warunki i prywatność"
     },
-    "signOut": "Wyloguj się"
+    "signOut": "Wyloguj się",
+    "search": {
+      "empty": "Brak pasujących ustawień"
+    }
   }
 }

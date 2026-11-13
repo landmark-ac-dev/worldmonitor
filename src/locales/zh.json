@@ -5122,6 +5122,9 @@
       "aiAgents": "已连接的 MCP 客户端",
       "about": "网站链接、条款和隐私"
     },
-    "signOut": "退出登录"
+    "signOut": "退出登录",
+    "search": {
+      "empty": "没有匹配的设置"
+    }
   }
 }

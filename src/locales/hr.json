@@ -5189,6 +5189,9 @@
       "aiAgents": "Povezani MCP klijenti",
       "about": "Veze stranica, uvjeti korištenja i privatnost"
     },
-    "signOut": "Odjava"
+    "signOut": "Odjava",
+    "search": {
+      "empty": "Nema odgovarajućih postavki"
+    }
   }
 }

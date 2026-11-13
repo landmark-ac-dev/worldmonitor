@@ -5206,6 +5206,9 @@
       "aiAgents": "Připojení MCP klienti",
       "about": "Odkazy webu, podmínky a ochrana soukromí"
     },
-    "signOut": "Odhlásit se"
+    "signOut": "Odhlásit se",
+    "search": {
+      "empty": "Žádné nastavení neodpovídá"
+    }
   }
 }

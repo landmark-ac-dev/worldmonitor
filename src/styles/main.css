@@ -27799,6 +27799,14 @@ body.map-width-resizing {
 
 .upgrade-pro-cta:hover { opacity: 0.85; }
 
+.us-signout {
+  margin-top: 24px;
+}
+
+.us-signout + .account-deletion-zone {
+  margin-top: 16px;
+}
+
 .account-deletion-zone {
   margin-top: 24px;
   padding: 16px;

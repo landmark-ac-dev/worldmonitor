@@ -394,6 +394,17 @@ export class UnifiedSettings {
         return;
       }
 
+      const signOutButton = target.closest<HTMLButtonElement>('[data-settings-signout]');
+      if (signOutButton) {
+        // The auth subscription rebuilds Settings for the signed-out state.
+        signOutButton.disabled = true;
+        signOut().catch(() => {
+          signOutButton.disabled = false;
+          showToast(t('common.error'));
+        });
+        return;
+      }
+
       if (target.closest('[data-settings-signin]')) {
         this.afterTeardown = () => { import('@/services/clerk').then(m => m.openSignIn()).catch(() => {}); };
         this.close();
@@ -1285,6 +1296,9 @@ export class UnifiedSettings {
         </div>
         ${this.renderUpgradeSection()}
         <div id="usEnterpriseSeats">${this.enterpriseSeatsSection.renderContent()}</div>
+        <ul class="us-list us-signout" role="list">
+          <li><button type="button" class="us-row" data-settings-signout><span class="us-row-text"><span class="us-row-title">Sign out</span></span></button></li>
+        </ul>
         ${this.renderAccountDeletionSection()}
       `, 'account page; billing and seat sections escape their values'));
       return { enter: () => this.loadAccountSeats(), dispose: () => {} };

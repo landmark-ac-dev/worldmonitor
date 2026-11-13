@@ -15,7 +15,8 @@ import {
 } from '@/config/panels';
 import { isProUser } from '@/services/widget-store';
 import { SITE_VARIANT } from '@/config/variant';
-import { t } from '@/services/i18n';
+import { I18N_RESOURCES_LOADED_EVENT, t } from '@/services/i18n';
+import { replaceRawI18nKeyPlaceholders } from '@/utils/i18n-raw-key-healer';
 import { createSettingsButton } from '@/components/settings-button';
 import { confirmDialog } from '@/components/confirm-dialog';
 import {
@@ -757,6 +758,7 @@ export class UnifiedSettings {
     safeStorageSet('wm-settings-open', '1');
     document.addEventListener('keydown', this.escapeHandler);
     window.addEventListener('resize', this.onResize);
+    window.addEventListener(I18N_RESOURCES_LOADED_EVENT, this.onTranslationsLoaded);
     track('settings-open', { tab: section ?? 'default' });
 
     // Rebuild account-scoped pages when entitlements arrive (cold-load race:
@@ -922,6 +924,7 @@ export class UnifiedSettings {
     safeStorageRemove('wm-settings-open');
     document.removeEventListener('keydown', this.escapeHandler);
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener(I18N_RESOURCES_LOADED_EVENT, this.onTranslationsLoaded);
     // Last: the host reloads data in response, and the overlay covering the
     // dashboard has to be gone before that lands for the user to see it.
     this.notifySourceSelectionChanged();
@@ -989,6 +992,7 @@ export class UnifiedSettings {
     this.closeDeletionDialog();
     document.removeEventListener('keydown', this.escapeHandler);
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener(I18N_RESOURCES_LOADED_EVENT, this.onTranslationsLoaded);
     // Teardown, not a user-initiated close: release the trap's document
     // listener without handing focus back to a trigger that is also going away.
     this.focusTrap.deactivate({ restoreFocus: false });
@@ -1219,6 +1223,16 @@ export class UnifiedSettings {
   private navLayout(): NavLayout {
     return isMobileDevice() ? 'sheet' : 'modal';
   }
+
+  /**
+   * Settings can open before the full catalogue loads (a deep link, or the
+   * checkout return opening Account), and its keys are not in the boot shell.
+   * Redraw the rows and heal the open pages in place, so typed input survives.
+   */
+  private readonly onTranslationsLoaded = (): void => {
+    this.renderHome();
+    replaceRawI18nKeyPlaceholders(this.overlay, t);
+  };
 
   /** Crossing the phone breakpoint redraws Settings in the other layout on the same page. */
   private readonly onResize = (): void => {

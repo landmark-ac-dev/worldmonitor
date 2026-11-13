@@ -27,6 +27,7 @@ import {
   diffNav,
   isPreferenceSection,
   isSettingsSectionId,
+  pageEntryEffect,
   reduceNav,
   sectionLabelKey,
   type MountedSection,
@@ -99,6 +100,7 @@ import {
   overlayHistory,
   type OverlayCloseOrigin,
   type OverlayId,
+  type OverlayOpenHandle,
 } from '@/utils/overlay-history';
 import { isMobileDevice } from '@/utils';
 import {
@@ -208,6 +210,8 @@ export class UnifiedSettings {
   /** Runs once Settings has actually closed; dropped when the user keeps it open. */
   private afterTeardown: (() => void) | null = null;
   private historyRegistered = false;
+  /** The open page's history entry on the phone sheet, from request until it closes. */
+  private pageEntry: OverlayOpenHandle | null = null;
   /**
    * `sourceSelectionSignature()` as of the last open(), or null while closed.
    *
@@ -709,15 +713,18 @@ export class UnifiedSettings {
     }
     this.overlay.classList.add('active');
     this.focusTrap.activate();
-    this.dispatch({ type: 'open', target: section });
     if (isMobileDevice()) {
       this.historyRegistered = true;
       const close = (origin: OverlayCloseOrigin) => this.close(origin);
       if (replaceOverlayId) overlayHistory.replace(replaceOverlayId, 'settings', close);
       else overlayHistory.open('settings', close);
     }
+    // After the Settings entry: a page opened directly stacks its entry above
+    // it, so Back from that page lands on the home list.
+    this.dispatch({ type: 'open', target: section });
     safeStorageSet('wm-settings-open', '1');
     document.addEventListener('keydown', this.escapeHandler);
+    window.addEventListener('resize', this.syncPageEntry);
     track('settings-open', { tab: section ?? 'default' });
 
     // Rebuild account-scoped pages when entitlements arrive (cold-load race:
@@ -864,6 +871,7 @@ export class UnifiedSettings {
   }
 
   private teardownSettings(origin: OverlayCloseOrigin = 'control'): void {
+    this.releasePageEntry();
     if (origin === 'control' && this.historyRegistered) {
       overlayHistory.close('settings');
     }
@@ -882,6 +890,7 @@ export class UnifiedSettings {
     this.resetPanelDraft();
     safeStorageRemove('wm-settings-open');
     document.removeEventListener('keydown', this.escapeHandler);
+    window.removeEventListener('resize', this.syncPageEntry);
     // Last: the host reloads data in response, and the overlay covering the
     // dashboard has to be gone before that lands for the user to see it.
     this.notifySourceSelectionChanged();
@@ -930,6 +939,7 @@ export class UnifiedSettings {
   }
 
   public destroy(): void {
+    this.releasePageEntry();
     if (this.historyRegistered) overlayHistory.close('settings');
     this.historyRegistered = false;
     if (this.savedTimeout) clearTimeout(this.savedTimeout);
@@ -947,6 +957,7 @@ export class UnifiedSettings {
     this.stopMcpQuotaPolling();
     this.closeDeletionDialog();
     document.removeEventListener('keydown', this.escapeHandler);
+    window.removeEventListener('resize', this.syncPageEntry);
     // Teardown, not a user-initiated close: release the trap's document
     // listener without handing focus back to a trigger that is also going away.
     this.focusTrap.deactivate({ restoreFocus: false });
@@ -1122,6 +1133,7 @@ export class UnifiedSettings {
     const fx = diffNav(prev, next);
     if (fx.leave === null && fx.enter === null && prev !== null) {
       this.nav = next;
+      this.syncPageEntry();
       return;
     }
     const modal = this.overlay.querySelector<HTMLElement>('.unified-settings-modal');
@@ -1137,7 +1149,39 @@ export class UnifiedSettings {
     } else if (fx.leave && next.page === null) {
       this.overlay.querySelector<HTMLElement>(`[data-settings-nav="${fx.leave}"]`)?.focus({ preventScroll: true });
     }
+    this.syncPageEntry();
   }
+
+  /** Holds or releases the open page's history entry to match the page and layout. Idempotent. */
+  private readonly syncPageEntry = (): void => {
+    const layout = isMobileDevice() ? 'sheet' : 'modal';
+    if (pageEntryEffect(this.nav, layout, this.historyRegistered) === 'hold') {
+      this.pageEntry ??= overlayHistory.openCancelable('settings-section', this.onPageEntryClosed);
+    } else {
+      this.releasePageEntry();
+    }
+  };
+
+  private releasePageEntry(): void {
+    this.pageEntry?.cancel();
+    this.pageEntry = null;
+    overlayHistory.close('settings-section');
+  }
+
+  /** The manager removed the page entry: device Back, or the tab bar replacing Settings. */
+  private readonly onPageEntryClosed = (origin: OverlayCloseOrigin): void => {
+    this.pageEntry = null;
+    // A replacement is the tab bar dismissing or replacing Settings next.
+    if (origin !== 'history') return;
+    // Back with the deletion dialog up acts like Escape: it closes the dialog
+    // (never mid-deletion) and keeps the Account page.
+    if (this.deletionDialog) {
+      if (!this.deletionBusy) this.closeDeletionDialog();
+      this.syncPageEntry();
+      return;
+    }
+    this.dispatch({ type: 'back' });
+  };
 
   /**
    * Account or entitlement change: every page may render differently, so
@@ -1156,6 +1200,7 @@ export class UnifiedSettings {
         ?? this.overlay.querySelector<HTMLElement>('[data-settings-nav], [data-settings-signin]');
       target?.focus({ preventScroll: true });
     }
+    this.syncPageEntry();
   }
 
   private reflectNav(): void {

@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from '@/services/desktop-runtime';
+import { APP_NAME } from '@/config/personal-deployment';
 import { track } from '@/services/analytics';
 import { t } from '@/services/i18n';
 import { declareOverlay } from '@/utils/open-modal';
@@ -97,7 +98,7 @@ export function openIosInstallSheet(): void {
   const heading = document.createElement('div');
   const brand = document.createElement('div');
   brand.className = 'pwa-install-brand';
-  brand.textContent = 'World Monitor';
+  brand.textContent = APP_NAME;
   const title = document.createElement('h2');
   title.id = 'pwa-install-title';
   title.textContent = t('pwaInstall.title');

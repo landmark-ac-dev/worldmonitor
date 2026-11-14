@@ -71,6 +71,7 @@ import {
   resolveCheckoutReturnOrigin,
 } from './checkout-return-url';
 import { WEB_APP_ORIGIN } from '@/config/web-origin';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { openExternalUrl } from './external-navigation';
 import { isDesktopRuntime } from './desktop-runtime';
 import { showToast } from '@/utils/toast';
@@ -492,7 +493,7 @@ export async function startCheckout(
     checkoutContext?: CheckoutContext;
   },
 ): Promise<boolean> {
-  if (_checkoutInFlight) return false;
+  if (PERSONAL_DEPLOYMENT || _checkoutInFlight) return false;
   const fallbackToPricingPage = behavior?.fallbackToPricingPage ?? true;
   const desktopRuntime = isDesktopRuntime();
 

@@ -79,6 +79,7 @@ function extractOpen() {
     'isMobileDevice',
     'overlayHistory',
     'safeStorageSet',
+    'PERSONAL_DEPLOYMENT',
     `${js}\nreturn __UnifiedSettingsOpenHarness;`,
   );
 }
@@ -86,15 +87,16 @@ function extractOpen() {
 let mcpAccess = false;
 let embedAccess = false;
 let accountRole = undefined;
-const Harness = extractOpen()(
+function createHarness(personalDeployment = false, onCloudSubscribe = () => {}) {
+  return extractOpen()(
   () => ({ planKey: mcpAccess || embedAccess ? 'pro_monthly' : 'free' }),
   () => 'ready',
   (feature) =>
     (feature === 'mcpAccess' && mcpAccess) || (feature === 'embedAccess' && embedAccess),
   (role) => role === 'pro' || embedAccess,
-  () => () => {},
-  () => () => {},
-  () => () => {},
+  () => { onCloudSubscribe(); return () => {}; },
+  () => { onCloudSubscribe(); return () => {}; },
+  () => { onCloudSubscribe(); return () => {}; },
   () => null,
   () => ({ user: accountRole ? { role: accountRole } : null }),
   () => {},
@@ -103,7 +105,10 @@ const Harness = extractOpen()(
   () => false,
   { open() {}, replace() {} },
   () => {},
+  personalDeployment,
 );
+}
+const Harness = createHarness();
 
 /**
  * What the stubbed sourceSelectionSignature() returns, so the baseline open()
@@ -111,8 +116,8 @@ const Harness = extractOpen()(
  */
 const STUB_SOURCE_SIGNATURE = 'stub-source-signature';
 
-function makeInstance(initialTab = 'settings') {
-  const instance = new Harness();
+function makeInstance(initialTab = 'settings', SettingsHarness = Harness) {
+  const instance = new SettingsHarness();
   instance.activeTab = initialTab;
   instance.resetPanelDraft = () => {};
   // The real one reads config.getDisabledSources(), which this harness has no
@@ -159,6 +164,24 @@ describe('UnifiedSettings.open active-tab availability (#5611)', () => {
       addEventListener() {},
       removeEventListener() {},
     };
+  });
+
+  it('opens local settings without subscribing to or loading cloud accounts in personal mode', () => {
+    let subscriptions = 0;
+    let seatLoads = 0;
+    const PersonalHarness = createHarness(true, () => { subscriptions += 1; });
+    const instance = makeInstance('settings', PersonalHarness);
+    instance.businessSeatsSection.load = () => { seatLoads += 1; };
+    instance.loadEnterpriseSeats = () => { seatLoads += 1; };
+    accountRole = 'pro';
+
+    instance.open('panels');
+
+    assert.equal(instance.activeTab, 'panels');
+    assert.deepEqual(instance.renderedTabs, ['panels']);
+    assert.equal(instance.sourceSelectionBaseline, STUB_SOURCE_SIGNATURE);
+    assert.equal(subscriptions, 0);
+    assert.equal(seatLoads, 0);
   });
 
   // AI Agents (tab id 'mcp-clients') is open to every account: connecting an

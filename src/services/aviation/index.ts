@@ -393,6 +393,10 @@ const breakerGoogleDates = createCircuitBreaker<GoogleDatesResult>({ name: 'Goog
 
 // ---- Public API ----
 
+export function getFlightDelaysDataState() {
+  return breakerDelays.getDataState();
+}
+
 export async function fetchFlightDelays(): Promise<AirportDelayAlert[]> {
   const hydrated = getHydratedData('flightDelays') as { alerts?: ProtoAlert[] } | undefined;
   if (hydrated?.alerts?.length) {

@@ -1,4 +1,5 @@
 import { t } from '@/services/i18n';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { fetchCountryHistory, type GetCountryHistoryResponse, type CountryHistoryPoint } from '@/services/country-history';
 import { onEntitlementChange } from '@/services/entitlements';
 
@@ -94,9 +95,13 @@ export class CountryHistory {
       (dates.lastElementChild as HTMLButtonElement).click();
     }
     if (this.days >= data.allowedDays && data.allowedDays < 365) {
-      const upsell = this.element('a', t(data.allowedDays <= 7 ? 'countryHistory.unlock90' : 'countryHistory.unlock365'), 'panel-locked-cta');
-      upsell.href = '/pro#pricing';
-      this.mount.append(upsell);
+      if (PERSONAL_DEPLOYMENT) {
+        this.mount.append(this.element('p', 'Longer history is unavailable on this installation.', 'country-history-notice'));
+      } else {
+        const upsell = this.element('a', t(data.allowedDays <= 7 ? 'countryHistory.unlock90' : 'countryHistory.unlock365'), 'panel-locked-cta');
+        upsell.href = '/pro#pricing';
+        this.mount.append(upsell);
+      }
     }
   }
 

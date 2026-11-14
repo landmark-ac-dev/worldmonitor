@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from '../services/runtime';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { invokeTauri } from '../services/tauri-bridge';
 import { t } from '../services/i18n';
 import { type DomChild, h, replaceChildren, safeHtml as sanitizeHtmlFragment, setTrustedHtml, trustedHtml, type TrustedHtml } from '../utils/dom-utils';
@@ -304,7 +305,7 @@ export class Panel {
     }
 
     if (options.premium && !getSecretState('WORLDMONITOR_API_KEY').present) {
-      const proBadge = h('span', { className: 'panel-pro-badge' }, t('premium.pro'));
+      const proBadge = h('span', { className: 'panel-pro-badge' }, PERSONAL_DEPLOYMENT ? 'Not connected' : t('premium.pro'));
       headerLeft.appendChild(proBadge);
     }
 
@@ -1212,6 +1213,10 @@ export class Panel {
   }
 
   public showLocked(features: string[] = []): void {
+    if (PERSONAL_DEPLOYMENT) {
+      this.showPersonalUnavailable();
+      return;
+    }
     this._locked = true;
     this.clearRetryCountdown();
     this._snapshotContentForRestore();
@@ -1306,6 +1311,10 @@ export class Panel {
   }
 
   public showGatedCta(reason: PanelGateReason, onAction: () => void): void {
+    if (PERSONAL_DEPLOYMENT && reason !== PanelGateReason.NONE) {
+      this.showPersonalUnavailable();
+      return;
+    }
     const entry = Panel.gatedCtaEntry(reason);
     if (!entry) return; // PanelGateReason.NONE should never reach here
 
@@ -1342,6 +1351,18 @@ export class Panel {
     ctaBtn.addEventListener('click', onAction);
 
     this.replaceContent(h('div', { className: 'panel-locked-state' }, iconEl, descEl, ctaBtn));
+  }
+
+  private showPersonalUnavailable(): void {
+    this._locked = true;
+    this.clearRetryCountdown();
+    this._snapshotContentForRestore();
+    for (let child = this.header.nextElementSibling; child && child !== this.content; child = child.nextElementSibling) {
+      (child as HTMLElement).style.display = 'none';
+    }
+    this.element.classList.add('panel-is-locked');
+    this.replaceContent(h('div', { className: 'panel-locked-state' },
+      h('div', { className: 'panel-locked-desc' }, 'This data service is not connected to your personal installation.')));
   }
 
   public unlockPanel(): void {

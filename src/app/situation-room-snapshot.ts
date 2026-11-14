@@ -7,7 +7,7 @@ export function getSituationRoomSnapshot(ctx: AppContext): SituationRoomInput {
   const operational = SITE_VARIANT !== 'happy';
   const enabled: Record<SituationRoomDomain, boolean> = {
     aviation: operational && (!!ctx.isSituationRoom || ctx.mapLayers.flights),
-    cyber: operational && import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true' && (!!ctx.isSituationRoom || ctx.mapLayers.cyberThreats),
+    cyber: operational && (!!ctx.isSituationRoom || (import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true' && ctx.mapLayers.cyberThreats)),
     finance: operational,
     weather: operational && (!!ctx.isSituationRoom || ctx.mapLayers.weather),
   };

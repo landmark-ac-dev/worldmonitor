@@ -1,12 +1,11 @@
 # =============================================================================
 # World Monitor — Docker / Podman Compose
 # =============================================================================
-# Self-contained stack: app + Redis + AIS relay.
+# Self-contained stack: app + Redis + AIS relay + aviation/cyber seed schedule.
 #
 # Quick start:
 #   cp .env.example .env        # add your API keys
-#   docker compose pull && docker compose up -d   # pull published images (recommended)
-#   docker compose up -d --build                  # or build the three images from source
+#   docker compose up -d --build                  # build this fork, including TV seed scheduling
 #
 # The app will be available at http://localhost:3000
 #
@@ -110,6 +109,27 @@ services:
     depends_on:
       redis-rest:
         condition: service_started
+    restart: unless-stopped
+
+  tv-seeds:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.tv-seeds
+    image: worldmonitor-tv-seeds:local
+    container_name: worldmonitor-tv-seeds
+    init: true
+    mem_limit: 512m
+    environment:
+      # Fixed to this Compose network; never inherit a hosted Upstash URL.
+      UPSTASH_REDIS_REST_URL: "http://redis-rest:80"
+      UPSTASH_REDIS_REST_TOKEN: "${REDIS_TOKEN:?REDIS_TOKEN required — generate with: openssl rand -hex 32}"
+      UPSTASH_ALLOW_INSECURE_HTTP: "true"
+    # No provider keys: FAA/RSS, Feodo and C2Intel are attempted. International
+    # aviation and keyed cyber providers retain their explicit unavailable state.
+    depends_on:
+      redis-rest:
+        condition: service_started
+    stop_grace_period: 15s
     restart: unless-stopped
 
   redis:

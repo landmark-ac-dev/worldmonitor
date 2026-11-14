@@ -13,6 +13,7 @@
  */
 
 import { t } from '@/services/i18n';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { PanelGateReason } from '@/services/panel-gating';
 import { h, replaceChildren, setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
 import { lockSvg, upgradeSvg } from '@/components/gate-icons';
@@ -129,6 +130,11 @@ export class ExportGateControl {
   }
 
   private render(): void {
+    if (PERSONAL_DEPLOYMENT) {
+      this.trigger.setAttribute('aria-label', 'Export service not connected');
+      replaceChildren(this.menu, h('div', { className: 'export-locked-desc' }, 'This export service is not connected to your personal installation.'));
+      return;
+    }
     const copy = exportGateCopy(this.reason);
     this.trigger.setAttribute('aria-label', t('components.exportGate.lockedAriaLabel', { reason: copy.desc }));
 

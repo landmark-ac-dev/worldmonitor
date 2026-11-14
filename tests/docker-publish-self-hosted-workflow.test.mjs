@@ -77,7 +77,7 @@ test('main-side runs move `main` and never `latest`, so a clone pulls images fro
   assert.ok(rules.some((line) => line.startsWith('type=sha')), 'every run publishes sha-<commit>');
 
   for (const [service, def] of Object.entries(compose.services)) {
-    if (!def.build) continue;
+    if (!def.build || service === 'tv-seeds') continue;
     assert.match(def.image, /:\$\{WM_IMAGE_TAG:-main\}$/, `${service}: compose must default to the main tag`);
   }
 });
@@ -109,11 +109,11 @@ test('the root Dockerfile builds its frontend on the build host, not under QEMU'
   assert.match(readText('Dockerfile'), /^FROM --platform=\$BUILDPLATFORM node:\S+ AS builder$/m);
 });
 
-test('the build matrix covers every compose service with the context its Dockerfile needs', () => {
+test('the build matrix covers published compose services with the context their Dockerfiles need', () => {
   const legs = selfHosted.jobs.docker.strategy.matrix.include;
 
   for (const [service, def] of Object.entries(compose.services)) {
-    if (!def.build) continue;
+    if (!def.build || service === 'tv-seeds') continue;
     const [, name] = /^ghcr\.io\/koala73\/([\w-]+):/.exec(def.image) ?? [];
     assert.ok(name, `${service}: image must point at ghcr.io/koala73/<name>`);
 
@@ -128,4 +128,12 @@ test('the build matrix covers every compose service with the context its Dockerf
       `${service}: the matrix must build the Dockerfile docker-compose.yml builds`
     );
   }
+});
+
+test('the TV seed service is built locally and is not claimed as a published upstream image', () => {
+  const seed = compose.services['tv-seeds'];
+  assert.equal(seed.image, 'worldmonitor-tv-seeds:local');
+  assert.deepEqual(seed.build, { context: '.', dockerfile: 'docker/Dockerfile.tv-seeds' });
+  assert.ok(!selfHosted.jobs.docker.strategy.matrix.include.some(leg => leg.image === 'worldmonitor-tv-seeds'));
+  assert.match(readText('docker/Dockerfile.tv-seeds'), /tv-seed-runner\.mjs/);
 });

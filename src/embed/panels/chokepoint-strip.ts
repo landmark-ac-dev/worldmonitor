@@ -1,4 +1,5 @@
 import { t } from '@/services/i18n';
+import { APP_NAME } from '@/config/personal-deployment';
 import { SupplyChainServiceClient } from '@/services/generated-rpc-clients';
 import type { ChokepointInfo } from '@/generated/client/worldmonitor/supply_chain/v1/service_client';
 import { buildWorldMonitorAttributionUrl } from '@/embed/embed-url';
@@ -120,7 +121,7 @@ export async function mountEmbedChokepointStrip(root: HTMLElement, apiKey: strin
   attribution.href = buildWorldMonitorAttributionUrl(new URL('/dashboard', window.location.origin).toString(), getReferrerHost());
   attribution.target = '_blank';
   attribution.rel = 'noopener noreferrer';
-  attribution.textContent = 'Chokepoint Monitor by World Monitor';
+  attribution.textContent = `Chokepoint Monitor by ${APP_NAME}`;
   wrap.appendChild(attribution);
 
   root.appendChild(wrap);

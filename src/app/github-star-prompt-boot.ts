@@ -1,3 +1,4 @@
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import {
   decideStarPrompt,
   localDayKey,
@@ -38,7 +39,7 @@ function inIframe(): boolean {
 
 export function bootGitHubStarPrompt(now: Date = new Date()): { decision: StarPromptDecision; destroy: () => void } {
   const storage = starPromptStorage();
-  const embedded = inIframe();
+  const embedded = PERSONAL_DEPLOYMENT || inIframe();
   const decision = decideStarPrompt({
     inIframe: embedded,
     dismissed: readStarPromptDismissed(storage),

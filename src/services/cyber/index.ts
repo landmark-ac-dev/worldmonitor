@@ -79,6 +79,10 @@ const MAX_LIMIT = 1000;
 const DEFAULT_DAYS = 14;
 const MAX_DAYS = 90;
 
+export function getCyberThreatsDataState() {
+  return breaker.getDataState();
+}
+
 function clampInt(rawValue: number | undefined, fallback: number, min: number, max: number): number {
   if (!Number.isFinite(rawValue)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(rawValue as number)));

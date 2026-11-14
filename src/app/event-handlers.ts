@@ -1,4 +1,5 @@
 import { observeDashboardFirstInteraction } from '@/components/dashboard-interaction-analytics';
+import { APP_NAME, PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import type {
   AppContext,
   AppModule,
@@ -457,7 +458,9 @@ export class EventHandlerManager implements AppModule {
         // Tell the user why nothing happened instead of failing silently.
         // (Undo-restore can't reach this branch — closing a panel frees a
         // slot first — so only the CMD+K "Add" path surfaces the toast.)
-        showToast(t('modals.settingsWindow.freePanelLimit', { max: String(FREE_MAX_PANELS) }));
+        showToast(PERSONAL_DEPLOYMENT
+          ? `This installation supports up to ${FREE_MAX_PANELS} panels. Turn one off before adding another.`
+          : t('modals.settingsWindow.freePanelLimit', { max: String(FREE_MAX_PANELS) }));
         return false;
       }
     }
@@ -500,7 +503,9 @@ export class EventHandlerManager implements AppModule {
           if (committedEnabled) suppressNextAgentPanelView(committedPanelId);
         },
         showCapToast: () => showToast(
-          t('modals.settingsWindow.freePanelLimit', { max: String(FREE_MAX_PANELS) }),
+          PERSONAL_DEPLOYMENT
+            ? `This installation supports up to ${FREE_MAX_PANELS} panels. Turn one off before adding another.`
+            : t('modals.settingsWindow.freePanelLimit', { max: String(FREE_MAX_PANELS) }),
         ),
         isPanelAllowed: (id, config) => isPanelEntitled(id, config, hasPremiumAccess(getAuthState())),
       },
@@ -1759,7 +1764,7 @@ export class EventHandlerManager implements AppModule {
 
     const preview = document.createElement('iframe');
     preview.className = 'embed-preview-frame';
-    preview.title = 'World Monitor live map preview';
+    preview.title = `${APP_NAME} live map preview`;
     preview.loading = 'lazy';
     preview.referrerPolicy = 'strict-origin-when-cross-origin';
     preview.src = embedUrl;
@@ -2074,7 +2079,7 @@ export class EventHandlerManager implements AppModule {
     trackVariantSwitch(SITE_VARIANT, variant);
     await this.exitFullscreenForNavigation();
 
-    if (this.ctx.isDesktopApp || options.isLocalDev) {
+    if (PERSONAL_DEPLOYMENT || this.ctx.isDesktopApp || options.isLocalDev) {
       if (stageVariantSelection(SITE_VARIANT, variant, writeStorageValue)) {
         window.history.replaceState(
           window.history.state,
@@ -2474,6 +2479,7 @@ export class EventHandlerManager implements AppModule {
   }
 
   setupAuthWidget(): void {
+    if (PERSONAL_DEPLOYMENT) return;
     const modal = new AuthLauncher();
     this.ctx.authModal = modal;
 

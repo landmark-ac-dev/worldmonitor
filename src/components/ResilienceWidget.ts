@@ -1,4 +1,5 @@
 import { type AuthSession, getAuthState, subscribeAuthState } from '@/services/auth-state';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import {
   getEntitlementVerificationStatus,
   onEntitlementChange,
@@ -297,6 +298,7 @@ export class ResilienceWidget {
   }
 
   private renderLocked(gateReason: PanelGateReason): HTMLElement {
+    if (PERSONAL_DEPLOYMENT) return h('div', { className: 'cdp-card-body' }, 'This data service is not connected to your personal installation.');
     const description = gateReason === PanelGateReason.ANONYMOUS
       ? 'Sign in to unlock premium resilience scores.'
       : 'Upgrade to Pro to unlock resilience scores.';

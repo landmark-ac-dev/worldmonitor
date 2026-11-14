@@ -15,6 +15,8 @@ FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f2
 
 WORKDIR /app
 ENV npm_config_install_links=true
+ARG VITE_PERSONAL_MODE=true
+ENV VITE_PERSONAL_MODE=$VITE_PERSONAL_MODE
 
 # Install root dependencies (layer-cached until package.json changes)
 COPY package.json package-lock.json ./

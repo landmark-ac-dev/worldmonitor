@@ -1,4 +1,5 @@
 import type { CheckoutAttribution } from './analytics';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { WEB_APP_ORIGIN } from '@/config/web-origin';
 import { showCheckoutErrorToast } from '@/services/checkout-error-toast';
 import { buildAttributedProUrl } from '../../shared/checkout-attribution';
@@ -29,6 +30,10 @@ function reportPlanOpenFailure(): void {
  * adds the desktop handoff there (#10342).
  */
 export async function openUpgradePlans(attribution?: CheckoutAttribution): Promise<void> {
+  if (PERSONAL_DEPLOYMENT) {
+    showCheckoutErrorToast('This hosted feature is not connected to your personal installation.');
+    return;
+  }
   try {
     const [{ openExternalUrl }, { loadActiveReferral }] = await Promise.all([
       import('@/services/external-navigation'),

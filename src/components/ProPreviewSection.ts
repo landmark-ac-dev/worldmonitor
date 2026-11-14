@@ -1,4 +1,5 @@
 import { type AuthSession, getAuthState, subscribeAuthState } from '@/services/auth-state';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import {
   getEntitlementVerificationStatus,
   onEntitlementChange,
@@ -149,6 +150,12 @@ export class ProPreviewSection {
   }
 
   private render(): void {
+    if (PERSONAL_DEPLOYMENT) {
+      this.stopViewedTracking();
+      this.element.hidden = true;
+      replaceChildren(this.element);
+      return;
+    }
     const state = this.resolveState();
 
     if (state === 'resolving' || state === 'degraded' || state === 'entitled') {

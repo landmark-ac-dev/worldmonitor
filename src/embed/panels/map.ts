@@ -1,4 +1,5 @@
 import { MapContainer, type MapContainerState } from '@/components/MapContainer';
+import { APP_NAME } from '@/config/personal-deployment';
 import { EmbedDataLoader } from '@/embed/embed-data-loader';
 import { mintEmbedGrant } from '@/embed/embed-fetch';
 import {
@@ -51,7 +52,7 @@ export async function mountEmbedMapPanel(
   attribution.href = buildWorldMonitorAttributionUrl(new URL('/dashboard', window.location.origin).toString(), getReferrerHost());
   attribution.target = '_blank';
   attribution.rel = 'noopener noreferrer';
-  attribution.textContent = 'Live map by World Monitor';
+  attribution.textContent = `Live map by ${APP_NAME}`;
   root.appendChild(attribution);
 
   // Resolved once and reused for every re-mint, so an expiring grant does not

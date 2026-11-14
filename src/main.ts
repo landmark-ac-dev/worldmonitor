@@ -3,6 +3,7 @@ import './bootstrap/zod-csp';
 import './bootstrap/abort-signal-fallbacks';
 import './bootstrap/dom-fallbacks';
 import { initPwaInstall } from '@/services/pwa-install';
+import { isSituationRoomUrl } from '@/services/situation-room-settings';
 import { SITE_VARIANT } from '@/config/variant';
 import { installLcpAttributionDebug } from '@/bootstrap/lcp-attribution';
 import { markLcpDebug } from '@/utils/lcp-debug';
@@ -20,6 +21,14 @@ import { captureContentAttributionFromUrl } from '../shared/content-attribution'
 import { captureAgentRefFromSearch } from '../shared/agent-client-source';
 import { agentRefStorage } from '@/services/agent-ref';
 
+// Pick the TV install identity before install-prompt bookkeeping starts. The
+// ordinary dashboard retains its generated manifest and existing Happy TV mode.
+if (isSituationRoomUrl(window.location.pathname, window.location.search)) {
+  const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]') ?? document.createElement('link');
+  manifest.rel = 'manifest';
+  manifest.href = '/tv.webmanifest';
+  if (!manifest.isConnected) document.head.append(manifest);
+}
 initPwaInstall();
 
 if (SITE_VARIANT === 'happy') {

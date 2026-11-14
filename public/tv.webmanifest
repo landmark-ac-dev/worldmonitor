@@ -1,0 +1,18 @@
+{
+  "id": "/tv",
+  "name": "World Monitor TV",
+  "short_name": "Monitor TV",
+  "description": "A rotating, glanceable world intelligence display for a television.",
+  "start_url": "/tv",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "theme_color": "#0a0f0a",
+  "background_color": "#0a0f0a",
+  "icons": [
+    { "src": "/favico/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favico/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/favico/worldmonitor-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favico/worldmonitor-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

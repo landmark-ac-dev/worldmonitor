@@ -37,6 +37,7 @@ coverage. Classify errors from the actual response and handler path.
 
 ## Features
 
+- [TV display](./tv-display.md) — `/tv` and `?tv=1`, rotating scenes, remote controls, quiet hours and offline recovery at 1080p and 4K.
 - [Dashboard boot](./dashboard-boot.md) — a cold visit hydrates into a real dashboard: header, mounted map renderer, populated panel grid.
 - [Panel settings](./panel-settings.md) — the Settings overlay applies a panel toggle to the live dashboard and persists it.
 - [Country brief](./country-brief.md) — the `?country=` deep link opens the country intelligence panel and round-trips through the URL.

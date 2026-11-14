@@ -198,7 +198,9 @@ import { selectWebMcpPanelTab } from '@/app/webmcp-panel-tab-binding';
 import { refreshDataFreshnessFromHealth } from '@/services/health-freshness';
 import { scheduleAfterFirstPaint } from '@/utils/after-paint';
 import type { SearchManager } from '@/app/search-manager';
-import { RefreshScheduler } from '@/app/refresh-scheduler';
+import { RefreshScheduler, runLaneWithLease } from '@/app/refresh-scheduler';
+import { isSituationRoomUrl } from '@/services/situation-room-settings';
+import type { SituationRoomController } from '@/app/situation-room';
 import { PanelLayoutManager } from '@/app/panel-layout';
 import { DataLoaderManager } from '@/app/data-loader';
 import { EventHandlerManager } from '@/app/event-handlers';
@@ -340,6 +342,7 @@ export class App {
 
   private panelLayout: PanelLayoutManager;
   private dataLoader: DataLoaderManager;
+  private situationRoom: SituationRoomController | null = null;
   private eventHandlers: EventHandlerManager;
   private searchManager: SearchManager | null = null;
   private searchManagerLoad: Promise<SearchManager> | null = null;
@@ -1580,6 +1583,7 @@ export class App {
       latestClusters: [],
       intelligenceCache: {},
       cyberThreatsCache: null,
+      isSituationRoom: isSituationRoomUrl(window.location.pathname, window.location.search),
       disabledSources,
       currentTimeRange: '7d',
       inFlight: new Set(),
@@ -2968,7 +2972,7 @@ export class App {
 
 
     const geoCoordsPromise: Promise<PreciseCoordinates | null> =
-      this.state.isMobile && this.state.initialUrlState?.lat === undefined && this.state.initialUrlState?.lon === undefined
+      this.state.isMobile && !this.state.isSituationRoom && this.state.initialUrlState?.lat === undefined && this.state.initialUrlState?.lon === undefined
         ? resolvePreciseUserCoordinates(5000)
         : Promise.resolve(null);
 
@@ -2995,6 +2999,23 @@ export class App {
     markLcpDebug('wm:layout:init-start');
     await this.panelLayout.init();
     markLcpDebug('wm:layout:init-complete');
+    if (this.state.isSituationRoom) {
+      const [{ SituationRoomController }, { getSituationRoomSnapshot }, { dataFreshness }] = await Promise.all([
+        import('@/app/situation-room'),
+        import('@/app/situation-room-snapshot'),
+        import('@/services/data-freshness'),
+      ]);
+      if (this.state.isDestroyed) return;
+      this.situationRoom = new SituationRoomController({
+        container: this.state.container,
+        getSnapshot: () => getSituationRoomSnapshot(this.state),
+        reconnect: () => this.refreshSituationRoomData(),
+        resizeMap: () => { if (!this.state.isDestroyed) this.state.map?.resize(); },
+        // A tracker change only requests a render; the model reads local
+        // committed snapshots, never health-summary freshness as news evidence.
+        subscribe: (refresh) => dataFreshness.subscribe(refresh),
+      });
+    }
     this.eventHandlers.setupSearchControls();
     showProBanner(this.state.container);
     this.updateConnectivityUi();
@@ -3672,6 +3693,8 @@ export class App {
     // downloading models or restarting for a destroyed app (#7779).
     this.localAiInitEpoch += 1;
     this.state.isDestroyed = true;
+    try { this.situationRoom?.destroy(); } catch { /* Continue normal dashboard teardown. */ }
+    this.situationRoom = null;
     this.latestSearchAdsb = [];
     this.latestSearchMilitary = [];
     this.latestSearchAdsbUpdatedAt = 0;
@@ -3997,6 +4020,32 @@ export class App {
     }
   }
 
+  /** Reuse the regular refresh lanes for reconnect and the TV refresh control. */
+  private refreshSituationRoomData(): void {
+    if (!this.state.isSituationRoom || this.state.isDestroyed || navigator.onLine === false) return;
+    const lanes: Array<{ name: string; fn: () => Promise<void>; interval: number }> = [
+      { name: 'news', fn: () => this.dataLoader.loadNews(), interval: REFRESH_INTERVALS.feeds },
+    ];
+    if (SITE_VARIANT !== 'happy') {
+      lanes.push(
+        { name: 'markets', fn: () => this.dataLoader.loadMarkets(), interval: REFRESH_INTERVALS.markets },
+        { name: 'weather', fn: () => this.dataLoader.loadWeatherAlerts(), interval: REFRESH_INTERVALS.weather },
+        { name: 'flights', fn: () => this.dataLoader.loadFlightDelays(), interval: REFRESH_INTERVALS.flights },
+      );
+      if (CYBER_LAYER_ENABLED) lanes.push({
+        name: 'cyberThreats', interval: REFRESH_INTERVALS.cyberThreats,
+        fn: () => {
+          this.state.cyberThreatsCache = null;
+          return this.dataLoader.loadCyberThreats();
+        },
+      });
+    }
+    for (const lane of lanes) {
+      void runLaneWithLease(lane.name, lane.fn, this.lifecycleController.signal, lane.interval, this.state.inFlight)
+        .catch((error) => { if (!this.state.isDestroyed) console.warn(`[SituationRoom] ${lane.name} refresh failed`, error); });
+    }
+  }
+
   private setupRefreshIntervals(): void {
     // Always refresh news for all variants
     this.refreshScheduler.scheduleRefresh('news', () => this.dataLoader.loadNews(), REFRESH_INTERVALS.feeds);
@@ -4034,7 +4083,7 @@ export class App {
           name: 'markets',
           fn: () => this.dataLoader.loadMarkets(),
           intervalMs: REFRESH_INTERVALS.markets,
-          condition: () => this.isAnyPanelNearViewport(['markets', 'heatmap', 'commodities', 'crypto', 'crypto-heatmap', 'defi-tokens', 'ai-tokens', 'other-tokens']),
+          condition: () => this.state.isSituationRoom === true || this.isAnyPanelNearViewport(['markets', 'heatmap', 'commodities', 'crypto', 'crypto-heatmap', 'defi-tokens', 'ai-tokens', 'other-tokens']),
         },
         {
           name: 'predictions',
@@ -4050,7 +4099,7 @@ export class App {
         },
         { name: 'pizzint', fn: () => this.dataLoader.loadPizzInt(), intervalMs: REFRESH_INTERVALS.pizzint, condition: () => SITE_VARIANT === 'full' },
         { name: 'natural', fn: () => this.dataLoader.loadNatural(), intervalMs: REFRESH_INTERVALS.natural, condition: () => this.state.mapLayers.natural },
-        { name: 'weather', fn: () => this.dataLoader.loadWeatherAlerts(), intervalMs: REFRESH_INTERVALS.weather, condition: () => this.state.mapLayers.weather },
+        { name: 'weather', fn: () => this.dataLoader.loadWeatherAlerts(), intervalMs: REFRESH_INTERVALS.weather, condition: () => this.state.mapLayers.weather || this.state.isSituationRoom === true },
         { name: 'canadaRoads', fn: () => this.dataLoader.loadCanadaRoads(), intervalMs: REFRESH_INTERVALS.canadaRoads, condition: () => !!this.state.mapLayers.canadaRoads },
         { name: 'pipelineRegistries', fn: () => this.dataLoader.loadPipelineRegistries({ refresh: true }), intervalMs: REFRESH_INTERVALS.pipelineStatus, condition: () => !!this.state.mapLayers.pipelines },
         { name: 'storageFacilities', fn: () => this.dataLoader.loadStorageFacilities({ refresh: true }), intervalMs: REFRESH_INTERVALS.storageFacilityMap, condition: () => !!this.state.mapLayers.storageFacilities },
@@ -4067,12 +4116,12 @@ export class App {
         { name: 'ais', fn: () => this.dataLoader.loadAisSignals(), intervalMs: REFRESH_INTERVALS.ais, condition: () => this.state.mapLayers.ais },
         { name: 'cables', fn: () => this.dataLoader.loadCableActivity(), intervalMs: REFRESH_INTERVALS.cables, condition: () => this.state.mapLayers.cables },
         { name: 'cableHealth', fn: () => this.dataLoader.loadCableHealth(), intervalMs: REFRESH_INTERVALS.cableHealth, condition: () => this.state.mapLayers.cables },
-        { name: 'flights', fn: () => this.dataLoader.loadFlightDelays(), intervalMs: REFRESH_INTERVALS.flights, condition: () => this.state.mapLayers.flights },
+        { name: 'flights', fn: () => this.dataLoader.loadFlightDelays(), intervalMs: REFRESH_INTERVALS.flights, condition: () => this.state.mapLayers.flights || this.state.isSituationRoom === true },
         {
           name: 'cyberThreats', fn: () => {
             this.state.cyberThreatsCache = null;
             return this.dataLoader.loadCyberThreats();
-          }, intervalMs: REFRESH_INTERVALS.cyberThreats, condition: () => CYBER_LAYER_ENABLED && this.state.mapLayers.cyberThreats
+          }, intervalMs: REFRESH_INTERVALS.cyberThreats, condition: () => CYBER_LAYER_ENABLED && (this.state.mapLayers.cyberThreats || this.state.isSituationRoom === true)
         },
       ]);
     }

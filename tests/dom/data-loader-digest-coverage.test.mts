@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AppContext } from '@/app/app-context';
 import type { ListFeedDigestResponse } from '@/generated/client/worldmonitor/news/v1/service_client';
@@ -74,6 +74,7 @@ interface DigestLoaderInternals {
     isCustom: boolean,
     options: { recordBaselineSample: boolean },
     generation: number,
+    recordSelectedFreshness?: (servedStale: boolean) => void,
   ): Promise<unknown[]>;
 }
 
@@ -992,6 +993,102 @@ describe('digest coverage follows the selected browser response', () => {
       itemsServed: 4,
     }));
     expect(mocks.enqueueSentryCall).not.toHaveBeenCalled();
+  });
+
+  describe('TV freshness follows committed local news generations', () => {
+    const NOW = Date.parse('2026-11-14T03:00:00Z');
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    async function tvLoader() {
+      const made = await makeLoader();
+      const ctx = (made.loader as unknown as { ctx: AppContext }).ctx;
+      ctx.isSituationRoom = true;
+      ctx.monitors = [];
+      ctx.inFlight = new Set();
+      ctx.map = { setNewsLocations: vi.fn(), updateHotspotActivity: vi.fn() } as unknown as AppContext['map'];
+      let categories = ['politics'];
+      let selected: SelectedNewsDigest = { digest: digest('complete'), servedStale: false };
+      made.internal.resolveEnabledNewsCategories = () => categories.map(key => ({
+        key, feeds: [0, 1].map(i => ({ name: `source-${i}`, url: `https://fixture.test/${i}.rss` })), isCustom: false,
+      }));
+      made.internal.tryFetchDigest = async () => selected;
+      made.internal.loadIntelNews = async () => [];
+      made.internal.clusterNewsForGeneration = async () => ({ clusters: [] });
+      // Exercise the real category success/failure code and loadNews commit,
+      // while omitting unrelated baseline writes from this coverage test.
+      const loadCategory = made.internal.loadNewsCategory.bind(made.internal);
+      vi.spyOn(made.internal, 'loadNewsCategory').mockImplementation((key, feeds, body, custom, options, generation, recordFreshness) => (
+        loadCategory(key, feeds, body, custom, { ...options, recordBaselineSample: false }, generation, recordFreshness)
+      ));
+      return {
+        ...made, ctx,
+        categories: (keys: string[]) => { categories = keys; },
+        selection: (next: SelectedNewsDigest) => { selected = next; },
+      };
+    }
+
+    it('records a successful fresh commit and does not renew it on stale replay', async () => {
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(NOW);
+      const { loader, ctx, selection } = await tvLoader();
+      await loader.loadNews();
+      expect(ctx.situationRoomNewsUpdatedAt).toBe(NOW);
+      expect(ctx.situationRoomNewsDegraded).toBe(false);
+
+      clock.mockReturnValue(NOW + 60_000);
+      selection({ digest: digest('complete'), servedStale: true });
+      await loader.loadNews();
+      expect(ctx.situationRoomNewsUpdatedAt).toBe(NOW);
+      expect(ctx.situationRoomNewsDegraded).toBe(true);
+    });
+
+    it('a failed selected category prevents fresh promotion and a later success recovers', async () => {
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(NOW);
+      const { loader, ctx, categories, selection } = await tvLoader();
+      await loader.loadNews();
+      categories(['politics', 'health']);
+      clock.mockReturnValue(NOW + 60_000);
+      // A 200 digest can still omit a selected category. The real loader's
+      // no-fallback path must mark this commit degraded, despite fresh politics.
+      await loader.loadNews();
+      expect(ctx.allNews.length).toBeGreaterThan(0);
+      expect(ctx.situationRoomNewsUpdatedAt).toBe(NOW);
+      expect(ctx.situationRoomNewsDegraded).toBe(true);
+
+      const complete = digest('complete');
+      complete.categories.health = { items: [] };
+      selection({ digest: complete, servedStale: false });
+      clock.mockReturnValue(NOW + 120_000);
+      await loader.loadNews();
+      expect(ctx.situationRoomNewsUpdatedAt).toBe(NOW + 120_000);
+      expect(ctx.situationRoomNewsDegraded).toBe(false);
+    });
+
+    it('removing a previously failed category does not hold later snapshots degraded', async () => {
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(NOW);
+      const { loader, ctx, categories } = await tvLoader();
+      categories(['politics', 'health']);
+      await loader.loadNews();
+      expect(ctx.situationRoomNewsUpdatedAt).toBeUndefined();
+      expect(ctx.situationRoomNewsDegraded).toBe(true);
+
+      categories(['politics']);
+      clock.mockReturnValue(NOW + 60_000);
+      await loader.loadNews();
+      expect(ctx.situationRoomNewsUpdatedAt).toBe(NOW + 60_000);
+      expect(ctx.situationRoomNewsDegraded).toBe(false);
+    });
+
+    it('a late failed category from an old generation cannot degrade the current commit', async () => {
+      vi.spyOn(Date, 'now').mockReturnValue(NOW);
+      const { ctx, internal } = await tvLoader();
+      const obsolete = internal.beginNewsLoad();
+      const current = internal.beginNewsLoad();
+      internal.commitNewsFreshness(current, false);
+      await internal.loadNewsCategory('health', [{ name: 'source-0' }], null, false, { recordBaselineSample: false }, obsolete);
+      expect(internal.commitNewsFreshness(obsolete, false)).toBe(false);
+      expect(ctx.situationRoomNewsUpdatedAt).toBe(NOW);
+      expect(ctx.situationRoomNewsDegraded).toBe(false);
+    });
   });
 
   it('a late stale load cannot replace or alert over a newer fresh commit (#7084)', async () => {

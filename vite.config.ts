@@ -958,6 +958,23 @@ function rssProxyPlugin(): Plugin {
   };
 }
 
+// Keep the browser URL at /tv so the shared SPA entry selects TV mode.
+function tvDevRoutePlugin(): Plugin {
+  return {
+    name: 'wm-tv-dev-route',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const url = new URL(req.url ?? '/', 'http://localhost');
+        if (url.pathname === '/tv' || url.pathname === '/tv/') {
+          req.url = `/index.html${url.search}`;
+        }
+        next();
+      });
+    },
+  };
+}
+
 function gpsjamDevPlugin(): Plugin {
   return {
     name: 'gpsjam-dev',
@@ -1002,7 +1019,9 @@ function webMcpDevSecurityHeadersPlugin(): Plugin {
           res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox allow-scripts; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'unsafe-inline'; img-src data:; connect-src https://cdn.jsdelivr.net;");
         }
         res.setHeader('Origin-Agent-Cluster', '?1');
-        res.setHeader('Permissions-Policy', isEmbedDocument ? 'tools=()' : 'tools=(self)');
+        res.setHeader('Permissions-Policy', isEmbedDocument
+          ? 'tools=(), screen-wake-lock=()'
+          : 'tools=(self), screen-wake-lock=(self)');
         next();
       });
     },
@@ -1109,6 +1128,7 @@ export default defineConfig(({ mode }) => {
       // hostname). Desktop and dedicated VITE_VARIANT builds skip it.
       !isDesktopBuild && activeVariant === 'full' && variantDashboardHtmlPlugin(),
       webMcpDevSecurityHeadersPlugin(),
+      tvDevRoutePlugin(),
       polymarketPlugin(),
       rssProxyPlugin(),
       miitNewsPlugin(),

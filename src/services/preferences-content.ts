@@ -50,6 +50,7 @@ import {
   type AnalysisPanelId,
 } from '@/services/analysis-framework-store';
 import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 
 
 const DESKTOP_RELEASES_URL = 'https://github.com/koala73/worldmonitor/releases';
@@ -358,7 +359,7 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
     html += toggleRowHtml('us-cloud', t('components.insights.aiFlowCloudLabel'), t('components.insights.aiFlowCloudDesc'), settings.cloudLlm);
     html += toggleRowHtml('us-browser', t('components.insights.aiFlowBrowserLabel'), t('components.insights.aiFlowBrowserDesc'), settings.browserModel);
     html += `<div class="ai-flow-toggle-warn" style="display:${settings.browserModel ? 'block' : 'none'}">${t('components.insights.aiFlowBrowserWarn')}</div>`;
-    html += `
+    if (!PERSONAL_DEPLOYMENT) html += `
       <div class="ai-flow-cta">
         <div class="ai-flow-cta-title">${t('components.insights.aiFlowOllamaCta')}</div>
         <div class="ai-flow-cta-desc">${t('components.insights.aiFlowOllamaCtaDesc')}</div>
@@ -513,7 +514,7 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
   html += `</div></details>`;
 
   // ── Cloud Sync group (web-only, signed-in, feature flag on) ──
-  if (!host.isDesktopApp && host.isSignedIn && isCloudSyncEnabled()) {
+  if (!PERSONAL_DEPLOYMENT && !host.isDesktopApp && host.isSignedIn && isCloudSyncEnabled()) {
     const syncState = getSyncState();
     const lastSync = getLastSyncAt();
     const lastSyncStr = lastSync
@@ -536,7 +537,7 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
 
   // ── Data & Community group ──
   html += `<details class="wm-pref-group">`;
-  html += `<summary>${t('preferences.dataAndCommunity')}</summary>`;
+  html += `<summary>${PERSONAL_DEPLOYMENT ? 'Data' : t('preferences.dataAndCommunity')}</summary>`;
   html += `<div class="wm-pref-group-content">`;
   html += `
     <div class="us-data-mgmt">
@@ -774,7 +775,7 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
       if (!host.isDesktopApp) updateAiStatus(container);
 
       // ── Cloud Sync: wire "Sync now" button + live state updates ──
-      if (!host.isDesktopApp && host.isSignedIn && isCloudSyncEnabled()) {
+      if (!PERSONAL_DEPLOYMENT && !host.isDesktopApp && host.isSignedIn && isCloudSyncEnabled()) {
         const syncBtn = container.querySelector<HTMLButtonElement>('#usSyncNowBtn');
         if (syncBtn) {
           syncBtn.addEventListener('click', () => {

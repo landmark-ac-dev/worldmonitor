@@ -25,6 +25,7 @@ import type { Clerk } from '@clerk/clerk-js';
 import { enqueueSentryCall } from '@/bootstrap/sentry-defer';
 import { EULA_PATH, PRIVACY_PATH, absoluteLegalUrl } from '../../shared/legal';
 import { WEB_APP_ORIGIN } from '@/config/web-origin';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { isDesktopRuntime } from '@/config/desktop-runtime';
 import { showToast } from '@/utils/toast';
 
@@ -32,6 +33,7 @@ type ClerkInstance = Clerk;
 type ClerkSession = NonNullable<ClerkInstance['session']>;
 
 function readPublishableKey(): string | undefined {
+  if (PERSONAL_DEPLOYMENT) return undefined;
   try {
     return import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
   } catch {

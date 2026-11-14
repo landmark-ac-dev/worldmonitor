@@ -1,5 +1,6 @@
 import { CANONICAL_FEEDS, INTEL_SOURCES, SOURCE_REGION_MAP } from '@/config/feeds';
 import { WEB_APP_ORIGIN } from '@/config/web-origin';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { openExternalUrl } from '@/services/external-navigation';
 import { THEATER_PRESETS, getTheaterPreset, getTheaterPresetEnableList, resolveTheaterPresetSources, type TheaterPreset } from '@/config/theater-presets';
 import {
@@ -123,6 +124,7 @@ export interface UnifiedSettingsConfig {
 }
 
 type TabId = UnifiedSettingsTabId;
+const PERSONAL_SETTINGS_TABS: TabId[] = ['settings', 'panels', 'sources'];
 
 /** What the self-host Desktop key section shows (plan 2026-11-04-001, U6). */
 const SELF_HOST_KEY_TONE: Record<SelfHostKeyStatus, 'ok' | 'warn' | 'bad' | 'neutral'> = {
@@ -390,6 +392,7 @@ export class UnifiedSettings {
       const panelItem = target.closest<HTMLElement>('.panel-toggle-item');
       if (panelItem?.dataset.panel) {
         if (panelItem.dataset.proLocked) {
+          if (PERSONAL_DEPLOYMENT) return;
           // Absolute + routed: a relative /pro resolves against tauri://localhost
           // in the desktop WebView, where no such route is served (#5911).
           void openExternalUrl(`${WEB_APP_ORIGIN}/pro`);
@@ -603,12 +606,14 @@ export class UnifiedSettings {
 
     this.render();
     document.body.appendChild(this.overlay);
-    this.unsubscribeAuth = subscribeAuthState((state) => {
-      this.handleAccountIdentityChange(state.user?.id ?? null);
-    });
-    // The verdict can land after Settings is built (the first read is never
-    // awaited), and it changes on refresh or a premium denial.
-    this.unsubscribeSelfHostKey = subscribeSelfHostKey(() => this.refreshSelfHostKeySection());
+    if (!PERSONAL_DEPLOYMENT) {
+      this.unsubscribeAuth = subscribeAuthState((state) => {
+        this.handleAccountIdentityChange(state.user?.id ?? null);
+      });
+      // The verdict can land after Settings is built (the first read is never
+      // awaited), and it changes on refresh or a premium denial.
+      this.unsubscribeSelfHostKey = subscribeSelfHostKey(() => this.refreshSelfHostKeySection());
+    }
   }
 
   private handleAccountIdentityChange(nextUserId: string | null): void {
@@ -646,6 +651,7 @@ export class UnifiedSettings {
   }
 
   private captureAccountRequest(): AccountRequest | null {
+    if (PERSONAL_DEPLOYMENT) return null;
     const userId = getAuthState().user?.id ?? null;
     if (!userId || userId !== this.accountUserId) return null;
     return { userId, generation: this.accountDataGeneration };
@@ -686,6 +692,9 @@ export class UnifiedSettings {
     document.addEventListener('keydown', this.escapeHandler);
     (this.overlay.querySelector('.unified-settings-tabs') as HTMLElement)?.addEventListener('keydown', (e: KeyboardEvent) => this.handleKeyDown(e));
     track('settings-open', { tab: tab ?? 'default' });
+
+    // Personal settings have no cloud account surfaces or subscriptions.
+    if (PERSONAL_DEPLOYMENT) return;
 
     // Re-render API Keys panel when entitlements arrive (cold-load race:
     // hasFeature('apiAccess') returns false until the Convex subscription
@@ -945,14 +954,14 @@ export class UnifiedSettings {
     this.notifCleanup = null;
     this.pendingNotifs = null;
 
-    const isSignedIn = getAuthState().user !== null;
+    const isSignedIn = !PERSONAL_DEPLOYMENT && getAuthState().user !== null;
     const prefs = renderPreferences({
       isDesktopApp: this.config.isDesktopApp,
       onMapProviderChange: this.config.onMapProviderChange,
       onSettingSaved: () => showToast(t('modals.settingsWindow.saved')),
       isSignedIn,
     });
-    const showNotificationsTab = !this.config.isDesktopApp;
+    const showNotificationsTab = !PERSONAL_DEPLOYMENT && !this.config.isDesktopApp;
     const notifs = showNotificationsTab
       ? renderNotificationsSettings({ isSignedIn })
       : null;
@@ -961,8 +970,8 @@ export class UnifiedSettings {
     // apiAccess gate would hide embed keys from most of the customers who
     // bought embedding. A tab of its own rather than a section of API Keys so
     // the two credential classes never look interchangeable.
-    const showEmbedsTab = hasEmbedAccessForAccount(getAuthState().user?.role);
-    const availableTabs: TabId[] = [
+    const showEmbedsTab = !PERSONAL_DEPLOYMENT && hasEmbedAccessForAccount(getAuthState().user?.role);
+    const availableTabs: TabId[] = PERSONAL_DEPLOYMENT ? PERSONAL_SETTINGS_TABS : [
       'settings',
       ...(isSignedIn ? ['billing' as const] : []),
       'panels',
@@ -991,12 +1000,12 @@ export class UnifiedSettings {
           <button class="${tabClass('panels')}" tabindex="${this.activeTab === 'panels' ? 0 : -1}" data-tab="panels" role="tab" aria-selected="${this.activeTab === 'panels'}" id="us-tab-panels" aria-controls="us-tab-panel-panels">${t('header.tabPanels')}</button>
           <button class="${tabClass('sources')}" tabindex="${this.activeTab === 'sources' ? 0 : -1}" data-tab="sources" role="tab" aria-selected="${this.activeTab === 'sources'}" id="us-tab-sources" aria-controls="us-tab-panel-sources">${t('header.tabSources')}</button>
           ${showNotificationsTab ? `<button class="${tabClass('notifications')}" tabindex="${this.activeTab === 'notifications' ? 0 : -1}" data-tab="notifications" role="tab" aria-selected="${this.activeTab === 'notifications'}" id="us-tab-notifications" aria-controls="us-tab-panel-notifications">${t('header.tabNotifications')}</button>` : ''}
-          <button class="${tabClass('api-keys')}" tabindex="${this.activeTab === 'api-keys' ? 0 : -1}" data-tab="api-keys" role="tab" aria-selected="${this.activeTab === 'api-keys'}" id="us-tab-api-keys" aria-controls="us-tab-panel-api-keys">API Keys <span class="panel-pro-badge">PRO</span></button>
+          ${PERSONAL_DEPLOYMENT ? '' : `<button class="${tabClass('api-keys')}" tabindex="${this.activeTab === 'api-keys' ? 0 : -1}" data-tab="api-keys" role="tab" aria-selected="${this.activeTab === 'api-keys'}" id="us-tab-api-keys" aria-controls="us-tab-panel-api-keys">API Keys <span class="panel-pro-badge">PRO</span></button>`}
           ${showEmbedsTab ? `<button class="${tabClass('embeds')}" tabindex="${this.activeTab === 'embeds' ? 0 : -1}" data-tab="embeds" role="tab" aria-selected="${this.activeTab === 'embeds'}" id="us-tab-embeds" aria-controls="us-tab-panel-embeds">Embeds <span class="panel-pro-badge">PRO</span></button>` : ''}
-          <button class="${tabClass('mcp-clients')}" tabindex="${this.activeTab === 'mcp-clients' ? 0 : -1}" data-tab="mcp-clients" role="tab" aria-selected="${this.activeTab === 'mcp-clients'}" id="us-tab-mcp-clients" aria-controls="us-tab-panel-mcp-clients">AI Agents</button>
+          ${PERSONAL_DEPLOYMENT ? '' : `<button class="${tabClass('mcp-clients')}" tabindex="${this.activeTab === 'mcp-clients' ? 0 : -1}" data-tab="mcp-clients" role="tab" aria-selected="${this.activeTab === 'mcp-clients'}" id="us-tab-mcp-clients" aria-controls="us-tab-panel-mcp-clients">AI Agents</button>`}
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'settings' ? ' active' : ''}" data-panel-id="settings" id="us-tab-panel-settings" role="tabpanel" aria-labelledby="us-tab-settings">
-          <div data-selfhost-key-host>${selfHostKeyHtml}</div>
+          ${PERSONAL_DEPLOYMENT ? '' : `<div data-selfhost-key-host>${selfHostKeyHtml}</div>`}
           ${prefs.html}
         </div>
         ${isSignedIn ? `
@@ -1051,23 +1060,23 @@ export class UnifiedSettings {
           ${notifs.html}
         </div>
         ` : ''}
-        <div class="unified-settings-tab-panel${this.activeTab === 'api-keys' ? ' active' : ''}" data-panel-id="api-keys" id="us-tab-panel-api-keys" role="tabpanel" aria-labelledby="us-tab-api-keys">
+        ${PERSONAL_DEPLOYMENT ? '' : `<div class="unified-settings-tab-panel${this.activeTab === 'api-keys' ? ' active' : ''}" data-panel-id="api-keys" id="us-tab-panel-api-keys" role="tabpanel" aria-labelledby="us-tab-api-keys">
           ${this.renderApiKeysContent()}
-        </div>
+        </div>`}
         ${showEmbedsTab ? `
         <div class="unified-settings-tab-panel${this.activeTab === 'embeds' ? ' active' : ''}" data-panel-id="embeds" id="us-tab-panel-embeds" role="tabpanel" aria-labelledby="us-tab-embeds">
           ${this.renderEmbedKeysContent()}
         </div>
         ` : ''}
-        <div class="unified-settings-tab-panel${this.activeTab === 'mcp-clients' ? ' active' : ''}" data-panel-id="mcp-clients" id="us-tab-panel-mcp-clients" role="tabpanel" aria-labelledby="us-tab-mcp-clients">
+        ${PERSONAL_DEPLOYMENT ? '' : `<div class="unified-settings-tab-panel${this.activeTab === 'mcp-clients' ? ' active' : ''}" data-panel-id="mcp-clients" id="us-tab-panel-mcp-clients" role="tabpanel" aria-labelledby="us-tab-mcp-clients">
           ${this.renderMcpClientsContent()}
-        </div>
+        </div>`}
         <div class="dashboard-chrome-links">
-          ${dashboardSiteLinksHtml(resolveDashboardSiteOrigin({
+          ${PERSONAL_DEPLOYMENT ? '<a href="/credits.html">Source &amp; licenses</a>' : dashboardSiteLinksHtml(resolveDashboardSiteOrigin({
             isDesktopApp: this.config.isDesktopApp,
             hostname: window.location.hostname,
           }))}
-          ${legalLinksHtml(WEB_APP_ORIGIN)}
+          ${PERSONAL_DEPLOYMENT ? '' : legalLinksHtml(WEB_APP_ORIGIN)}
         </div>
       </div>
     `, "legacy direct innerHTML migration"));
@@ -1099,6 +1108,7 @@ export class UnifiedSettings {
     this.renderSourcesGrid();
     this.updateSourcesCounter();
 
+    if (PERSONAL_DEPLOYMENT) return;
     this.attachSelfHostKeyHandlers();
     this.attachApiKeysHandlers();
     this.attachEmbedKeysHandlers();
@@ -1142,6 +1152,7 @@ export class UnifiedSettings {
   }
 
   private switchTab(tab: TabId): void {
+    if (PERSONAL_DEPLOYMENT && !PERSONAL_SETTINGS_TABS.includes(tab)) return;
     this.activeTab = tab;
 
     updateSettingsTabSelection(
@@ -1475,6 +1486,7 @@ export class UnifiedSettings {
   // BusinessSeatsSection — see this.businessSeatsSection.
 
   private handleUpgradeClick(): void {
+    if (PERSONAL_DEPLOYMENT) return;
     // Defense in depth: re-check at click time so a late-arriving "you're a
     // paying user" snapshot routes to the billing portal instead of creating
     // a second checkout against an active subscription.
@@ -1519,7 +1531,12 @@ export class UnifiedSettings {
     const panelSettings = this.draftPanelSettings;
     let entries = Object.entries(panelSettings)
       .filter(([key]) => key !== 'runtime-config' || this.config.isDesktopApp)
-      .filter(([key]) => !key.startsWith('cw-'));
+      .filter(([key]) => !key.startsWith('cw-'))
+      .filter(([key, panel]) => !PERSONAL_DEPLOYMENT || isPanelEntitled(
+        key,
+        ALL_PANELS[key] ? getEffectivePanelConfig(key, SITE_VARIANT) : panel,
+        isProUser(),
+      ));
 
     if (this.activePanelCategory !== 'all') {
       const catDef = PANEL_CATEGORY_MAP[this.activePanelCategory];
@@ -1579,7 +1596,7 @@ export class UnifiedSettings {
           <button type="button" class="panel-toggle-item ${panel.enabled && !locked ? 'active' : ''}${changed ? ' changed' : ''}${locked ? ' pro-locked' : ''}" data-panel="${escapeHtml(key)}" ${a11yState.ariaPressed === null ? '' : `aria-pressed="${a11yState.ariaPressed}"`} ${a11yState.ariaLabel === null ? '' : `aria-label="${escapeHtml(a11yState.ariaLabel)}"`} ${locked ? 'data-pro-locked="1"' : ''}>
             <div class="panel-toggle-checkbox" aria-hidden="true">${panel.enabled && !locked ? '\u2713' : ''}${locked ? '\uD83D\uDD12' : ''}</div>
             <span class="panel-toggle-label">${escapeHtml(displayName)}</span>
-            ${(locked || resolvedPanel.premium) ? '<span class="panel-toggle-pro-badge" aria-hidden="true">PRO</span>' : ''}
+            ${!PERSONAL_DEPLOYMENT && (locked || resolvedPanel.premium) ? '<span class="panel-toggle-pro-badge" aria-hidden="true">PRO</span>' : ''}
           </button>
           ${supportsPanelFontScale ? `<details class="panel-font-scale-details"${panel.fontScale === undefined ? '' : ' open'}>
             <summary><span>${escapeHtml(panelFontScaleLabel)}</span><span data-panel-scale-summary>${escapeHtml(panel.fontScale === undefined ? followGlobalFontScaleLabel : fontScaleLabel(panel.fontScale))}</span></summary>
@@ -1653,7 +1670,9 @@ export class UnifiedSettings {
     if (!panel.enabled && !isProUser() && isFreePanelCapCounted(key)) {
       const enabledCount = countFreePanelCapUsage(this.draftPanelSettings);
       if (enabledCount >= FREE_MAX_PANELS) {
-        showToast(t('modals.settingsWindow.freePanelLimit', { max: String(FREE_MAX_PANELS) }));
+        showToast(PERSONAL_DEPLOYMENT
+          ? `This installation supports up to ${FREE_MAX_PANELS} panels. Turn one off before adding another.`
+          : t('modals.settingsWindow.freePanelLimit', { max: String(FREE_MAX_PANELS) }));
         return;
       }
     }
@@ -2101,6 +2120,7 @@ export class UnifiedSettings {
 
   /** Empty unless this page is served by a self-hosted install. */
   private renderSelfHostKeySection(): string {
+    if (PERSONAL_DEPLOYMENT) return '';
     const display = selfHostKeyDisplay(getSelfHostKeySnapshot());
     if (!display) return '';
     const { state, staleNote } = display;

@@ -1,4 +1,5 @@
 import { SITE_VARIANT } from '@/config/variant';
+import { APP_NAME, APP_DESCRIPTION, PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { VARIANT_META } from '@/config/variant-meta';
 import { getCanonicalApiOrigin } from '@/services/runtime';
 
@@ -11,21 +12,29 @@ interface StoryMeta {
   type: 'ciianalysis' | 'crisisalert' | 'dailybrief' | 'marketfocus';
 }
 
-const variantMeta = VARIANT_META[SITE_VARIANT] ?? VARIANT_META.full;
+const variantMeta = PERSONAL_DEPLOYMENT ? {
+  siteName: APP_NAME,
+  title: `${APP_NAME} · Family dashboard`,
+  description: APP_DESCRIPTION,
+  url: new URL('/dashboard', window.location.origin).toString(),
+} : VARIANT_META[SITE_VARIANT] ?? VARIANT_META.full;
 const CANONICAL_URL = variantMeta.url;
 const PUBLIC_ORIGIN = new URL(variantMeta.url).origin;
 const API_ORIGIN = getCanonicalApiOrigin();
-const DEFAULT_IMAGE = `${PUBLIC_ORIGIN}/favico/${SITE_VARIANT === 'full' ? '' : SITE_VARIANT + '/'}og-image.png`;
+const DEFAULT_IMAGE = PERSONAL_DEPLOYMENT ? `${PUBLIC_ORIGIN}/personal/icon-512.png`
+  : `${PUBLIC_ORIGIN}/favico/${SITE_VARIANT === 'full' ? '' : SITE_VARIANT + '/'}og-image.png`;
 
 export function updateMetaTagsForStory(meta: StoryMeta): void {
   const { countryCode, countryName, ciiScore, ciiLevel, trend, type } = meta;
 
   const title = `${countryName} Intelligence Brief | ${variantMeta.siteName}`;
   const description = generateDescription(ciiScore, ciiLevel, trend, type, countryName);
-  const storyUrl = `${API_ORIGIN}/api/story?c=${countryCode}&t=${type}`;
+  const storyUrl = PERSONAL_DEPLOYMENT ? `${CANONICAL_URL}?c=${encodeURIComponent(countryCode)}&t=${type}`
+    : `${API_ORIGIN}/api/story?c=${countryCode}&t=${type}`;
   let imageUrl = `${API_ORIGIN}/api/og-story?c=${countryCode}&t=${type}`;
   if (ciiScore !== undefined) imageUrl += `&s=${ciiScore}`;
   if (ciiLevel) imageUrl += `&l=${ciiLevel}`;
+  if (PERSONAL_DEPLOYMENT) imageUrl = DEFAULT_IMAGE;
 
   setMetaTag('title', title);
   setMetaTag('description', description);

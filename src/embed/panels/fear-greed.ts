@@ -1,4 +1,5 @@
 import { MarketServiceClient } from '@/services/generated-rpc-clients';
+import { APP_NAME } from '@/config/personal-deployment';
 import { buildWorldMonitorAttributionUrl } from '@/embed/embed-url';
 import { createKeyedEmbedFetch } from '@/embed/embed-fetch';
 
@@ -113,7 +114,7 @@ export async function mountEmbedFearGreed(root: HTMLElement, apiKey: string): Pr
   attribution.href = buildWorldMonitorAttributionUrl(new URL('/dashboard', window.location.origin).toString(), getReferrerHost());
   attribution.target = '_blank';
   attribution.rel = 'noopener noreferrer';
-  attribution.textContent = 'Fear & Greed by World Monitor';
+  attribution.textContent = `Fear & Greed by ${APP_NAME}`;
   wrap.appendChild(attribution);
 
   root.appendChild(wrap);

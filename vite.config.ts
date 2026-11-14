@@ -28,6 +28,7 @@ import {
   getChunkSizeWarning,
   isExpectedEmptyRpcClientWarning,
 } from './scripts/vite-build-warning-policy.mts';
+import { personalBuildPlugin, personalManifest } from './scripts/personal-build.mts';
 
 // Env-dependent constants moved inside defineConfig function
 
@@ -1047,6 +1048,7 @@ export default defineConfig(({ mode }) => {
 
   const isE2E = process.env.VITE_E2E === '1';
   const isDesktopBuild = process.env.VITE_DESKTOP_RUNTIME === '1';
+  const isPersonalBuild = process.env.VITE_PERSONAL_MODE === 'true';
   const activeVariant = process.env.VITE_VARIANT || 'full';
   const activeMeta = VARIANT_META[activeVariant] || VARIANT_META.full;
   // Production deploys never publish maps; see shared/source-map-policy.ts.
@@ -1126,7 +1128,8 @@ export default defineConfig(({ mode }) => {
       // Variant subdomain SEO pages only make sense on the web deployment,
       // which is always the 'full' build (variant selection is runtime by
       // hostname). Desktop and dedicated VITE_VARIANT builds skip it.
-      !isDesktopBuild && activeVariant === 'full' && variantDashboardHtmlPlugin(),
+      !isDesktopBuild && !isPersonalBuild && activeVariant === 'full' && variantDashboardHtmlPlugin(),
+      isPersonalBuild && personalBuildPlugin(__dirname),
       webMcpDevSecurityHeadersPlugin(),
       tvDevRoutePlugin(),
       polymarketPlugin(),
@@ -1140,7 +1143,9 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         injectRegister: false,
 
-        includeAssets: [
+        includeAssets: isPersonalBuild ? [
+          'offline.html', 'credits.html', 'personal/icon.svg', 'personal/icon-180.png',
+        ] : [
           'offline.html',
           'favico/favicon.ico',
           'favico/apple-touch-icon.png',
@@ -1202,6 +1207,7 @@ export default defineConfig(({ mode }) => {
             { src: '/favico/worldmonitor-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
             { src: '/favico/worldmonitor-maskable-1024.png', sizes: '1024x1024', type: 'image/png', purpose: 'maskable' },
           ],
+          ...(isPersonalBuild ? personalManifest : {}),
         },
 
         workbox: {

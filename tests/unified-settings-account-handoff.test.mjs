@@ -59,10 +59,11 @@ describe('UnifiedSettings account handoff', () => {
         extractMethod(settingsSource, 'private isAccountRequestCurrent('),
         extractMethod(settingsSource, 'private async loadApiKeys('),
       ],
-      ['getAuthState', 'listApiKeys'],
+      ['getAuthState', 'listApiKeys', 'PERSONAL_DEPLOYMENT'],
     )(
       () => ({ user: currentUserId ? { id: currentUserId } : null }),
       () => keysResult,
+      false,
     );
     const instance = new Harness();
     const renders = [];
@@ -131,6 +132,38 @@ describe('UnifiedSettings account handoff', () => {
     assert.deepEqual(renders, [false], 'the synchronous rerender must suppress account loads');
     assert.equal(listRenders, 1, 'A settlement must not render after B clears the surface');
     assert.equal(instance.isAccountRequestCurrent(requestA), false);
+  });
+
+  it('does not load account keys in personal mode even with a signed-in account', async () => {
+    let accountReads = 0;
+    let keyRequests = 0;
+    let renders = 0;
+    const Harness = transpileHarness(
+      [
+        extractMethod(settingsSource, 'private captureAccountRequest('),
+        extractMethod(settingsSource, 'private async loadApiKeys('),
+      ],
+      ['getAuthState', 'listApiKeys', 'PERSONAL_DEPLOYMENT'],
+    )(
+      () => { accountReads += 1; return { user: { id: 'A' } }; },
+      async () => { keyRequests += 1; return [{ id: 'private-key' }]; },
+      true,
+    );
+    const instance = new Harness();
+    instance.accountUserId = 'A';
+    instance.accountDataGeneration = 0;
+    instance.apiKeys = [];
+    instance.apiKeysLoading = false;
+    instance.renderApiKeysList = () => { renders += 1; };
+
+    assert.equal(instance.captureAccountRequest(), null);
+    await instance.loadApiKeys();
+
+    assert.equal(accountReads, 0);
+    assert.equal(keyRequests, 0);
+    assert.equal(renders, 0);
+    assert.deepEqual(instance.apiKeys, []);
+    assert.equal(instance.apiKeysLoading, false);
   });
 
   it('generation-guards every account-scoped async settings path', () => {

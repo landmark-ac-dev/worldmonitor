@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from '@/config/desktop-runtime';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 
 /**
  * Every variant a user can switch to. One desktop binary ships and switches
@@ -38,7 +39,7 @@ export const SITE_VARIANT: string = (() => {
   // here answered "web" during desktop:dev early boot and in
   // VITE_DESKTOP_RUNTIME=1 browser builds, so the switcher stored a variant
   // this read then ignored (#5912).
-  if (isDesktopRuntime()) {
+  if (isDesktopRuntime() || PERSONAL_DEPLOYMENT) {
     const stored = loadStoredVariant();
     if (isSiteVariant(stored)) return stored;
     return buildVariant;

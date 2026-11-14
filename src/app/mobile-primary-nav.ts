@@ -1,4 +1,5 @@
 import type { AppContext } from '@/app/app-context';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import type { MapView } from '@/components/MapContainer';
 import type { AuthLauncher } from '@/components/AuthLauncher';
 import { AuthHeaderWidget } from '@/components/AuthHeaderWidget';
@@ -189,7 +190,7 @@ export class MobilePrimaryNav {
 
     overlay.addEventListener('click', () => this.closeMenu(), options);
     close.addEventListener('click', () => this.closeMenu(), options);
-    const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const isLocalDev = PERSONAL_DEPLOYMENT || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     menu.querySelectorAll<HTMLButtonElement>('.mobile-menu-variant').forEach((button) => {
       button.addEventListener('click', () => {
         const variant = button.dataset.variant;

@@ -1,4 +1,5 @@
 import type { ListPipelinesResponse, ListStorageFacilitiesResponse, ListFuelShortagesResponse } from '@/generated/client/worldmonitor/supply_chain/v1/service_client';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import type { CountryBriefSource } from '@/services/country-brief-source';
 import type { BriefTopic } from '../../shared/country-brief-sections';
 import type { CountrySignalCounts } from '@/types';
@@ -1357,6 +1358,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   }
 
   private makeProLocked(text: string): HTMLElement {
+    if (PERSONAL_DEPLOYMENT) return this.makeEmpty('This service is unavailable on this installation.');
     const wrap = this.el('div', 'cdp-pro-locked');
     wrap.append(
       this.el('span', 'cdp-pro-lock-icon', '\uD83D\uDD12'),

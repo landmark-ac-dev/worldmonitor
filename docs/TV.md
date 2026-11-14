@@ -1,4 +1,18 @@
-# World Monitor on a TV
+# Everfen Monitor on a TV
+
+## Personal build
+
+This fork's Docker image defaults to `VITE_PERSONAL_MODE=true`: the dashboard,
+TV title, icons and installed-app name use Everfen Monitor. Variant switches
+and shared dashboard links stay on the current installation. Hosted account,
+subscription and promotional screens are omitted; unavailable services remain
+unavailable. Source attribution and the original license are linked from
+`/credits.html`.
+
+For a personal Vite development build, set `VITE_PERSONAL_MODE=true` before
+`npm run dev`. The Docker build argument can be set to `false` to retain the
+upstream interface. Changing the build does not change a tunnel's destination:
+the address must serve the newly built container to show this edition.
 
 Open `/tv` on the origin running this build. For local development, run
 `npm run dev` and open `http://localhost:5173/tv`. Use the actual port Vite prints

@@ -1,4 +1,5 @@
 import type { Monitor, PanelConfig, MapLayers } from '@/types';
+import { APP_NAME, APP_DESCRIPTION, PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { WEB_APP_ORIGIN } from '@/config/web-origin';
 import {
   isStockResearchPath,
@@ -2471,7 +2472,7 @@ export class App {
 
     // Self-hosted installs: ask the sidecar for the desktop-key verdict. Never
     // awaited; a no-op on worldmonitor.app and in the desktop app.
-    startSelfHostKeyService();
+    if (!PERSONAL_DEPLOYMENT) startSelfHostKeyService();
 
     window.addEventListener(I18N_RESOURCES_LOADED_EVENT, this.handleI18nResourcesLoaded);
 
@@ -2492,16 +2493,17 @@ export class App {
     // Localize the static index.html shell — <title>, meta description, and
     // the accessible <h1> are baked in English before the app boots; once i18n
     // is ready we swap them to the user's locale.
-    document.title = t('shell.documentTitle');
+    const personalTitle = `${APP_NAME} · Family dashboard`;
+    document.title = PERSONAL_DEPLOYMENT ? personalTitle : t('shell.documentTitle');
     const setMeta = (sel: string, val: string) => {
       const el = document.querySelector(sel);
       if (el) el.setAttribute('content', val);
     };
-    setMeta('meta[name="description"]', t('shell.metaDescription'));
-    setMeta('meta[property="og:title"]', t('shell.documentTitle'));
-    setMeta('meta[property="og:description"]', t('shell.metaDescription'));
-    setMeta('meta[name="twitter:title"]', t('shell.documentTitle'));
-    setMeta('meta[name="twitter:description"]', t('shell.metaDescription'));
+    setMeta('meta[name="description"]', PERSONAL_DEPLOYMENT ? APP_DESCRIPTION : t('shell.metaDescription'));
+    setMeta('meta[property="og:title"]', document.title);
+    setMeta('meta[property="og:description"]', PERSONAL_DEPLOYMENT ? APP_DESCRIPTION : t('shell.metaDescription'));
+    setMeta('meta[name="twitter:title"]', document.title);
+    setMeta('meta[name="twitter:description"]', PERSONAL_DEPLOYMENT ? APP_DESCRIPTION : t('shell.metaDescription'));
     // Mirror of OG_LOCALE in pro-test/src/i18n.ts. The two packages have
     // separate Vite roots and bundlers and can't share an import — keep the
     // tables aligned by hand when adding a locale here OR there.
@@ -2519,7 +2521,7 @@ export class App {
     const baseLang = docLang.split('-')[0] || 'en';
     setMeta('meta[property="og:locale"]', ogLocaleMap[docLang] || ogLocaleMap[baseLang] || `${baseLang}_${baseLang.toUpperCase()}`);
     const srH1 = document.querySelector('body > h1');
-    if (srH1) srH1.textContent = t('shell.documentTitle');
+    if (srH1) srH1.textContent = document.title;
     const aiFlow = getAiFlowSettings();
     // Optional local AI initializes independently of the dashboard critical
     // path (#7779): boot proceeds to layout, event handlers and basic panels

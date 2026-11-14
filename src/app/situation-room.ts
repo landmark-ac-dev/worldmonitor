@@ -8,6 +8,7 @@ import {
 import { mountInstallEntry } from '@/services/pwa-install';
 import { safeStorageGet, safeStorageSet } from '@/utils/safe-storage';
 import { SituationRoomVideo } from './situation-room-video';
+import { APP_NAME } from '@/config/personal-deployment';
 
 interface SituationRoomOptions {
   container: HTMLElement;
@@ -103,7 +104,7 @@ export class SituationRoomController {
 
   private mount(): void {
     document.documentElement.dataset.situationRoom = 'true';
-    document.title = 'World Monitor · Situation Room';
+    document.title = `${APP_NAME} · Situation Room`;
     this.reader.setAttribute('aria-label', 'Situation room briefing');
     this.reader.tabIndex = -1;
     this.statusCard.setAttribute('role', 'status');
@@ -114,7 +115,7 @@ export class SituationRoomController {
     this.toolbar.hidden = true;
 
     const brand = element('div', 'tv-brand');
-    brand.append(element('span', 'tv-brand-mark', '◎'), element('strong', '', 'WORLD MONITOR'), element('span', 'tv-edition', 'SITUATION ROOM'));
+    brand.append(element('span', 'tv-brand-mark', '◎'), element('strong', '', APP_NAME.toUpperCase()), element('span', 'tv-edition', 'SITUATION ROOM'));
     const health = element('div', 'tv-health');
     health.append(element('span', 'tv-eyebrow', 'NEWS PATTERN STATUS'), this.status, this.connectivity);
     const timebox = element('div', 'tv-timebox');

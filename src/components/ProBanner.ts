@@ -1,4 +1,5 @@
 import { trackGateHit, trackProBannerClick } from '@/services/analytics';
+import { PERSONAL_DEPLOYMENT } from '@/config/personal-deployment';
 import { onEntitlementChange, getEntitlementState, isEntitlementActive } from '@/services/entitlements';
 import { getSubscription, onSubscriptionChange } from '@/services/billing';
 import { deriveBillingUxState, getReactivationHref } from '@/services/billing-state';
@@ -208,6 +209,10 @@ function resolveEffectiveBannerPremium(): EffectiveBannerPremium {
 }
 
 export function showProBanner(container: HTMLElement): void {
+  if (PERSONAL_DEPLOYMENT) {
+    setReservation(false);
+    return;
+  }
   // Cache container even on early-return paths so the entitlement-change
   // listener can re-mount on a downgrade. App.ts calls this once at init
   // regardless of premium state, so caching here covers both "initially

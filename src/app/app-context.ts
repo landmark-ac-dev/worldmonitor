@@ -1,6 +1,8 @@
 import type { BreakerDataState } from '@/utils/circuit-breaker';
 import type { InternetOutage, SocialUnrestEvent, MilitaryFlight, MilitaryFlightCluster, MilitaryVessel, MilitaryVesselCluster, USNIFleetReport, PanelConfig, MapLayers, NewsItem, MarketData, ClusteredEvent, CyberThreat, Monitor, AisDisruptionEvent } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
+import type { WeatherAlert } from '@/services/weather';
+import type { SituationRoomDomain, SituationRoomSourceState } from '@/services/situation-room-model';
 import type { IranEvent } from '@/generated/client/worldmonitor/conflict/v1/service_client';
 import type { ConflictEvent } from '@/services/conflict';
 import type { GpsJamHex } from '@/services/gps-interference';
@@ -49,6 +51,7 @@ export interface IntelligenceCache {
   aisDisruptions?: AisDisruptionEvent[];
   satelliteFires?: SatelliteFireSignal[];
   flightDelays?: AirportDelayAlert[];
+  weatherAlerts?: WeatherAlert[];
   thermalEscalation?: import('@/services/thermal-escalation').ThermalEscalationWatch;
   aircraftPositions?: PositionSample[];
   outages?: InternetOutage[];
@@ -92,6 +95,14 @@ export interface AppContext {
   latestClusters: ClusteredEvent[];
   intelligenceCache: IntelligenceCache;
   cyberThreatsCache: CyberThreat[] | null;
+  /** Ambient view consumes existing loader lanes without changing saved panel/layer preferences. */
+  isSituationRoom?: boolean;
+  /** Receipt of the last fresh committed news snapshot; never renewed by stale replay. */
+  situationRoomNewsUpdatedAt?: number;
+  situationRoomNewsDegraded?: boolean;
+  situationRoomSources?: Partial<Record<SituationRoomDomain, SituationRoomSourceState>>;
+  /** Keep TV's last cyber body when the normal refresh invalidates its fetch cache. */
+  situationRoomCyberThreats?: CyberThreat[];
 
   disabledSources: Set<string>;
   currentTimeRange: import('@/components').TimeRange;

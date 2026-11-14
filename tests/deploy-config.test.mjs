@@ -1114,7 +1114,7 @@ describe('crawlable content corpus deployment contracts', () => {
     const fallbacks = getSpaFallbackRewrites();
     assert.deepEqual(
       fallbacks.map((r) => r.source).sort(),
-      ['/stocks', '/stocks/:symbol', '/story'],
+      ['/stocks', '/stocks/:symbol', '/story', '/tv'],
       'the SPA fallback inventory must stay enumerable — every entry is a real client-side route'
     );
 
@@ -2489,7 +2489,7 @@ describe('security header guardrails', () => {
       'magnetometer=()',
       'midi=()',
       'payment=(self "https://checkout.dodopayments.com" "https://test.checkout.dodopayments.com" "https://pay.google.com" "https://hooks.stripe.com" "https://js.stripe.com")',
-      'screen-wake-lock=()',
+      'screen-wake-lock=(self)',
       'serial=()',
       'usb=()',
       'xr-spatial-tracking=("https://challenges.cloudflare.com")',
@@ -2545,7 +2545,7 @@ describe('security header guardrails', () => {
     )?.[0] ?? '';
     assert.ok(pluginSource, 'Vite must define the local WebMCP security-header plugin');
     assert.match(pluginSource, /res\.setHeader\('Origin-Agent-Cluster', '\?1'\)/);
-    assert.match(pluginSource, /isEmbedDocument \? 'tools=\(\)' : 'tools=\(self\)'/);
+    assert.match(pluginSource, /isEmbedDocument\s*\? 'tools=\(\), screen-wake-lock=\(\)'\s*: 'tools=\(self\), screen-wake-lock=\(self\)'/);
     assert.doesNotMatch(pluginSource, /Origin-Trial/, 'localhost must use Chrome testing mode, not a trial token');
     assert.match(viteConfigSource, /\n\s+webMcpDevSecurityHeadersPlugin\(\),/);
     assert.match(proViteConfigSource, /'Origin-Agent-Cluster': '\?1'/);

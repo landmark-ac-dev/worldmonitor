@@ -1,4 +1,5 @@
 import type { AppContext, AppModule } from '@/app/app-context';
+import type { SituationRoomDomain, SituationRoomSourceState } from '@/services/situation-room-model';
 import { enqueueSentryCall } from '@/bootstrap/sentry-defer';
 import { isAnalyticsHost, track } from '@/services/analytics';
 import { isPageUnloading } from '@/bootstrap/page-unload-signal';
@@ -490,6 +491,7 @@ export class DataLoaderManager implements AppModule {
   private fullEditionIntel: { generation: number; selection: Promise<SelectedNewsDigest | null> } | null = null;
   private committedNewsGeneration = 0;
   private committedNewsServedStale = false;
+  private readonly situationRoomNewsFailures = new Set<string>();
   // Must outlast the server's own response deadline (RESPONSE_DEADLINE_MS,
   // 22 s, in list-feed-digest.ts) plus the body download. At 8 s the browser
   // abandoned digests the server was still delivering (Sentry WORLDMONITOR-1D4).
@@ -1240,7 +1242,10 @@ export class DataLoaderManager implements AppModule {
     } else {
       this.viewportHydration.markServed(this.ctx.panels, forceAll ? panelIds : panelIds.filter((id) => this.isPanelNearViewport(id)));
     }
-    const shouldLoad = (id: string): boolean => forceAll || (unserved ? unserved.has(id) : this.isPanelNearViewport(id));
+    // TV has its own visible finance card; the ordinary markets panel can be
+    // offscreen. Keep every unrelated hydration gate unchanged.
+    const shouldLoad = (id: string): boolean => (this.ctx.isSituationRoom === true && id === 'markets')
+      || forceAll || (unserved ? unserved.has(id) : this.isPanelNearViewport(id));
     const shouldLoadAny = (ids: string[]): boolean => ids.some(shouldLoad);
     // Work tied to no single panel runs on full passes, on the first viewport
     // pass, and when one of its panels first enters range.
@@ -1400,7 +1405,7 @@ export class DataLoaderManager implements AppModule {
     if (shouldLoad('social-velocity')) tasks.push({ name: 'socialVelocity', task: () => runGuarded('socialVelocity', () => this.loadSocialVelocity()) });
     if (hasPremiumAccess() && shouldLoad('wsb-ticker-scanner')) tasks.push({ name: 'wsbTickers', task: () => runGuarded('wsbTickers', () => this.loadWsbTickers()) });
     if (shouldLoad('economic')) tasks.push({ name: 'economicStress', task: () => runGuarded('economicStress', () => this.loadEconomicStress()) });
-    if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.weather) tasks.push({ name: 'weather', task: () => runGuarded('weather', () => this.loadWeatherAlerts()) });
+    if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.weather || this.ctx.isSituationRoom)) tasks.push({ name: 'weather', task: () => runGuarded('weather', () => this.loadWeatherAlerts()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.canadaRoads) tasks.push({ name: 'canadaRoads', task: () => runGuarded('canadaRoads', () => this.loadCanadaRoads()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.pipelines) tasks.push({ name: 'pipelineRegistries', task: () => runGuarded('pipelineRegistries', () => this.loadPipelineRegistries()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.storageFacilities) tasks.push({ name: 'storageFacilities', task: () => runGuarded('storageFacilities', () => this.loadStorageFacilities()) });
@@ -1411,8 +1416,8 @@ export class DataLoaderManager implements AppModule {
     }
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cables', task: () => runGuarded('cables', () => this.loadCableActivity()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cableHealth', task: () => runGuarded('cableHealth', () => this.loadCableHealth()) });
-    if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.flights) tasks.push({ name: 'flights', task: () => runGuarded('flights', () => this.loadFlightDelays()) });
-    if (SITE_VARIANT !== 'happy' && CYBER_LAYER_ENABLED && this.ctx.mapLayers.cyberThreats) tasks.push({ name: 'cyberThreats', task: () => runGuarded('cyberThreats', () => this.loadCyberThreats()) });
+    if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.flights || this.ctx.isSituationRoom)) tasks.push({ name: 'flights', task: () => runGuarded('flights', () => this.loadFlightDelays()) });
+    if (SITE_VARIANT !== 'happy' && CYBER_LAYER_ENABLED && (this.ctx.mapLayers.cyberThreats || this.ctx.isSituationRoom)) tasks.push({ name: 'cyberThreats', task: () => runGuarded('cyberThreats', () => this.loadCyberThreats()) });
     if (IRAN_ATTACKS_ENABLED && SITE_VARIANT !== 'happy' && !isDesktopRuntime() && (this.ctx.mapLayers.iranAttacks || shouldLoadAny(['cii', 'strategic-risk', 'strategic-posture']))) tasks.push({ name: 'iranAttacks', task: () => runGuarded('iranAttacks', () => this.loadIranEvents()) });
     if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.techEvents || SITE_VARIANT === 'tech')) tasks.push({ name: 'techEvents', task: () => runGuarded('techEvents', () => this.loadTechEvents()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.satellites && this.ctx.map?.isGlobeMode?.()) tasks.push({ name: 'satellites', task: () => runGuarded('satellites', () => this.loadSatellites()) });
@@ -1796,6 +1801,7 @@ export class DataLoaderManager implements AppModule {
 
       const enabledFeeds = (feeds ?? []).filter(f => !this.ctx.disabledSources.has(f.name));
       if (enabledFeeds.length === 0) {
+        this.setSituationRoomNewsFailure(category, false, generation);
         recordSelectedFreshness(false);
         delete this.ctx.newsByCategory[category];
         if (panel) {
@@ -1811,6 +1817,7 @@ export class DataLoaderManager implements AppModule {
 
       // Digest branch: server already aggregated feeds — map proto items to client types
       if (digest?.categories && category in digest.categories) {
+        this.setSituationRoomNewsFailure(category, false, generation);
         recordSelectedFreshness(digestServedStale);
         this.setNewsRefreshDegraded(category, digestServedStale);
         const delivered = (digest.categories[category]?.items ?? []).map(protoItemToNewsItem);
@@ -1871,6 +1878,7 @@ export class DataLoaderManager implements AppModule {
           const deliveredSources = new Set(crossEdition.items.map(i => i.source));
           const carried = crossEdition.complete ? [] : this.getStaleNewsItems(category)
             .filter(i => enabledNames.has(i.source) && !deliveredSources.has(i.source));
+          this.setSituationRoomNewsFailure(category, false, generation);
           recordSelectedFreshness(crossEdition.servedStale || carried.length > 0);
           this.setNewsRefreshDegraded(category, crossEdition.servedStale || carried.length > 0);
           const digestItems = crossEdition.items.filter(i => enabledNames.has(i.source));
@@ -1926,6 +1934,7 @@ export class DataLoaderManager implements AppModule {
 
       recordSelectedFreshness(false);
       if (!this.isNewsOutageFallbackEnabled()) {
+        this.setSituationRoomNewsFailure(category, true, generation);
         console.warn(`[News] Digest missing for "${category}", outage fallback off`);
         this.renderNewsForCategory(category, []);
         this.ctx.statusPanel?.updateFeed(category.charAt(0).toUpperCase() + category.slice(1), {
@@ -1988,6 +1997,7 @@ export class DataLoaderManager implements AppModule {
       const failedFeeds = fallbackFeeds.filter(f => failures.has(f.name));
       const allFailed = fallbackFeeds.length > 0 && failedFeeds.length === fallbackFeeds.length;
       this.setNewsRefreshDegraded(category, allFailed);
+      this.setSituationRoomNewsFailure(category, failedFeeds.length > 0, generation);
       this.renderNewsForCategory(category, items);
       if (panel) {
         if (renderTimeout) {
@@ -2029,6 +2039,7 @@ export class DataLoaderManager implements AppModule {
 
       return items;
     } catch (error) {
+      this.setSituationRoomNewsFailure(category, true, generation);
       this.ctx.statusPanel?.updateFeed(category.charAt(0).toUpperCase() + category.slice(1), {
         status: 'error',
         errorMessage: String(error),
@@ -2053,6 +2064,7 @@ export class DataLoaderManager implements AppModule {
     const enabledIntelNames = new Set(enabledIntelSources.map(f => f.name));
     const intelPanel = this.ctx.newsPanels['intel'];
     if (enabledIntelSources.length === 0) {
+      this.setSituationRoomNewsFailure('intel', false, generation);
       recordSelectedFreshness(false);
       delete this.ctx.newsByCategory['intel'];
       if (intelPanel) intelPanel.showError(t('common.allIntelSourcesDisabled'));
@@ -2085,6 +2097,7 @@ export class DataLoaderManager implements AppModule {
     const digestServedStale = selection?.servedStale ?? true;
 
     if (digest?.categories && 'intel' in digest.categories) {
+      this.setSituationRoomNewsFailure('intel', false, generation);
       recordSelectedFreshness(digestServedStale);
       this.setNewsRefreshDegraded('intel', digestServedStale);
       // Digest branch for intel
@@ -2131,6 +2144,7 @@ export class DataLoaderManager implements AppModule {
     if (options.digestPending) return [];
 
     if (!this.isNewsOutageFallbackEnabled()) {
+      this.setSituationRoomNewsFailure('intel', true, generation);
       recordSelectedFreshness(false);
       console.warn('[News] Intel digest missing, outage fallback off');
       this.renderNewsForCategory('intel', []);
@@ -2146,7 +2160,11 @@ export class DataLoaderManager implements AppModule {
     try {
       const { fetchCategoryFeeds } = await getRssModule();
       intel = await fetchCategoryFeeds(fallbackIntelFeeds, { batchSize: this.outageFallbackBatchSize });
+      // Fallback has no complete per-source coverage envelope. It can supply
+      // rows, but cannot certify a complete fresh news snapshot for TV.
+      this.setSituationRoomNewsFailure('intel', true, generation);
     } catch (e) {
+      this.setSituationRoomNewsFailure('intel', true, generation);
       recordSelectedFreshness(false);
       delete this.ctx.newsByCategory['intel'];
       console.error('[App] Intel feed failed:', e);
@@ -2228,6 +2246,10 @@ export class DataLoaderManager implements AppModule {
 
   private beginNewsLoad(): number {
     this.newsLoadGeneration += 1;
+    this.situationRoomNewsFailures.clear();
+    // Until this generation commits, a failed refresh must not leave the TV
+    // status claiming a successful current check. Keep the prior receipt time.
+    this.ctx.situationRoomNewsDegraded = true;
     return this.newsLoadGeneration;
   }
 
@@ -2307,7 +2329,39 @@ export class DataLoaderManager implements AppModule {
     if (!this.isCurrentNewsLoad(generation)) return false;
     this.committedNewsGeneration = generation;
     this.committedNewsServedStale = servedStale;
+    this.ctx.situationRoomNewsDegraded = servedStale || this.situationRoomNewsFailures.size > 0;
+    if (!this.ctx.situationRoomNewsDegraded) this.ctx.situationRoomNewsUpdatedAt = Date.now();
     return true;
+  }
+
+  private setSituationRoomNewsFailure(category: string, failed: boolean, generation: number): void {
+    if (!this.isCurrentNewsLoad(generation)) return;
+    if (failed) this.situationRoomNewsFailures.add(category);
+    else this.situationRoomNewsFailures.delete(category);
+  }
+
+  private recordSituationRoomSource(
+    domain: SituationRoomDomain,
+    state: SituationRoomSourceState['state'],
+    sourceUpdatedAt: number | null = null,
+  ): void {
+    if (this.ctx.isDestroyed) return;
+    const sources = this.ctx.situationRoomSources ??= {};
+    const previous = sources[domain];
+    sources[domain] = {
+      enabled: true, state,
+      // Receipt and source time are separate. A resolved breaker may return
+      // cached data; the TV model never calls this receipt provider freshness.
+      receivedAt: state === 'available' ? Date.now() : previous?.receivedAt ?? null,
+      sourceUpdatedAt: state === 'available' ? sourceUpdatedAt : previous?.sourceUpdatedAt ?? null,
+    };
+  }
+
+  private newestSituationRoomSourceTime(values: Array<number | undefined>): number | null {
+    const now = Date.now();
+    const known = values.filter((value): value is number => typeof value === 'number'
+      && Number.isFinite(value) && value > 0 && value <= now);
+    return known.length ? Math.max(...known) : null;
   }
 
   private canNotifyForCommittedNews(generation: number, servedStale: boolean): boolean {
@@ -2433,9 +2487,11 @@ export class DataLoaderManager implements AppModule {
           )
           : undefined,
         onCategoryError: (key, reason) => {
+          this.setSituationRoomNewsFailure(key ?? 'unknown', true, generation);
           console.error(`[App] News category ${key ?? 'unknown'} failed:`, reason);
         },
         onDigestRefreshError: (key, reason) => {
+          this.setSituationRoomNewsFailure(key ?? 'unknown', true, generation);
           console.error(`[App] Digest refresh for news category ${key ?? 'unknown'} failed:`, reason);
         },
       },
@@ -2749,6 +2805,7 @@ export class DataLoaderManager implements AppModule {
       // and mirror the downstream failure states before returning.
       console.warn('[DataLoader] market chunk load failed', e);
       if (isCurrent()) {
+        this.recordSituationRoomSource('finance', 'error');
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
         this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'error' });
         (this.ctx.panels['markets'] as MarketPanel | undefined)?.showRetrying(t('common.failedMarketData'));
@@ -2828,6 +2885,11 @@ export class DataLoaderManager implements AppModule {
         finnhubSkipped: stocksResult.skipped,
         rateLimited: stocksResult.rateLimited,
       });
+      if (isCurrent()) {
+        const state = stocksResult.rateLimited || stocksResult.skipped || stocksResult.data.length === 0 ? 'retained' : 'available';
+        this.recordSituationRoomSource('finance', state,
+          this.newestSituationRoomSourceTime(stocksResult.data.map((item) => item.priceAt)));
+      }
 
       if (!isCurrent()) {
         // A newer selection/load owns all market writes and any premium reload.
@@ -3019,7 +3081,10 @@ export class DataLoaderManager implements AppModule {
         }
       }
     } catch {
-      if (isCurrent()) this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
+      if (isCurrent()) {
+        this.recordSituationRoomSource('finance', 'error');
+        this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
+      }
     }
 
     try {
@@ -3647,11 +3712,15 @@ export class DataLoaderManager implements AppModule {
     const imdMarine = imd ? [...imd.portAlerts, ...imd.marineBulletins] : [];
     const merged = [...nws, ...imdMarine];
     if (alertsResult.status === 'rejected' && imdMarine.length === 0) {
+      this.recordSituationRoomSource('weather', 'error');
       this.ctx.map?.setLayerReady('weather', false);
       this.ctx.statusPanel?.updateFeed('Weather', { status: 'error' });
       dataFreshness.recordError('weather', String(alertsResult.reason));
       return;
     }
+    this.ctx.intelligenceCache.weatherAlerts = merged;
+    // Weather onset/expiry dates are not provider update timestamps.
+    this.recordSituationRoomSource('weather', alertsResult.status === 'rejected' ? 'retained' : 'available');
     this.ctx.map?.setWeatherAlerts(merged);
     this.ctx.map?.setLayerReady('weather', merged.length > 0);
     this.ctx.statusPanel?.updateFeed('Weather', { status: 'ok', itemCount: merged.length });
@@ -4102,12 +4171,17 @@ export class DataLoaderManager implements AppModule {
       const { fetchCyberThreats } = await import('@/services/cyber');
       const threats = await fetchCyberThreats({ limit: 500, days: 14 });
       this.ctx.cyberThreatsCache = threats;
+      this.ctx.situationRoomCyberThreats = threats;
+      this.recordSituationRoomSource('cyber', 'available', this.newestSituationRoomSourceTime(
+        threats.map((item) => item.lastSeen ? Date.parse(item.lastSeen) : undefined),
+      ));
       this.ctx.map?.setCyberThreats(threats);
       this.ctx.map?.setLayerReady('cyberThreats', threats.length > 0);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'ok', itemCount: threats.length });
       this.ctx.statusPanel?.updateApi('Cyber Threats API', { status: 'ok' });
       dataFreshness.recordUpdate('cyber_threats', threats.length);
     } catch (error) {
+      this.recordSituationRoomSource('cyber', 'error');
       this.ctx.map?.setLayerReady('cyberThreats', false);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'error', errorMessage: String(error) });
       this.ctx.statusPanel?.updateApi('Cyber Threats API', { status: 'error' });
@@ -4333,12 +4407,16 @@ export class DataLoaderManager implements AppModule {
       this.ctx.map?.setFlightDelays(delays);
       this.ctx.map?.setLayerReady('flights', delays.length > 0);
       this.ctx.intelligenceCache.flightDelays = delays;
+      this.recordSituationRoomSource('aviation', 'available', this.newestSituationRoomSourceTime(
+        delays.map((item) => item.updatedAt.getTime()),
+      ));
       this.ctx.statusPanel?.updateFeed('Flights', {
         status: 'ok',
         itemCount: delays.length,
       });
       this.ctx.statusPanel?.updateApi('FAA', { status: 'ok' });
     } catch (error) {
+      this.recordSituationRoomSource('aviation', 'error');
       this.ctx.map?.setLayerReady('flights', false);
       this.ctx.statusPanel?.updateFeed('Flights', { status: 'error', errorMessage: String(error) });
       this.ctx.statusPanel?.updateApi('FAA', { status: 'error' });

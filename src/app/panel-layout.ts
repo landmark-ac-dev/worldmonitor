@@ -1213,7 +1213,7 @@ export class PanelLayoutManager implements AppModule {
     // Seeding the class here makes the runtime collapsed rule apply from the
     // section's first frame instead of ~150ms later via setupMobileMapToggle
     // (which shoved #panelsGrid up 698px, field CLS ~0.62 for this cohort).
-    const mapStartsCollapsed = this.ctx.isMobile && PanelLayoutManager.isMobileMapCollapsedPreferred();
+    const mapStartsCollapsed = !this.ctx.isSituationRoom && this.ctx.isMobile && PanelLayoutManager.isMobileMapCollapsedPreferred();
     // Render the persisted map side into the markup so a right-side map does
     // not flash on the left before EventHandlerManager.init() runs (#6417).
     const mapRightClassActive = (() => {
@@ -2840,6 +2840,8 @@ export class PanelLayoutManager implements AppModule {
     // This is a boot-shell-only marker. The hydrated map owns the persistent
     // collapsed state on #mapSection, so do not leak it into runtime styling.
     document.documentElement.classList.remove('wm-map-collapsed');
+    // Keep the TV hero map visible without rewriting the saved mobile choice.
+    if (this.ctx.isSituationRoom) return;
     const mapSection = document.getElementById('mapSection');
     const headerLeft = mapSection?.querySelector('.panel-header-left');
     if (!mapSection || !headerLeft) return;
@@ -2944,10 +2946,11 @@ export class PanelLayoutManager implements AppModule {
       if (key === 'map') {
         const mapSection = document.getElementById('mapSection');
         if (mapSection) {
-          mapSection.classList.toggle('hidden', !config.enabled);
+          const mapEnabled = this.ctx.isSituationRoom === true || config.enabled;
+          mapSection.classList.toggle('hidden', !mapEnabled);
           const mainContent = document.querySelector('.main-content');
           if (mainContent) {
-            mainContent.classList.toggle('map-hidden', !config.enabled);
+            mainContent.classList.toggle('map-hidden', !mapEnabled);
           }
           this.ensureCorrectZones();
         }
@@ -4217,9 +4220,9 @@ export class PanelLayoutManager implements AppModule {
     if (this.ctx.isDestroyed) return;
     markLcpDebug('wm:map:container-construct');
     this.ctx.map = new MapContainer(mapContainer, {
-      zoom: this.ctx.isMobile ? 2.5 : 1.0,
+      zoom: this.ctx.isMobile && !this.ctx.isSituationRoom ? 2.5 : 1.0,
       pan: { x: 0, y: 0 },
-      view: this.ctx.isMobile ? this.ctx.resolvedLocation : 'global',
+      view: this.ctx.isMobile && !this.ctx.isSituationRoom ? this.ctx.resolvedLocation : 'global',
       layers: this.ctx.mapLayers,
       timeRange: '7d',
     }, preferGlobe, {

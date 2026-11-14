@@ -3,6 +3,7 @@ import type { NewsItem } from '@/types';
 import { buildFamilyBrief } from '@/services/family-facts';
 import type { StoryAssessment } from '@/types/family-facts';
 import { createCopyPasteCheck } from './news/CopyPasteCheck';
+import { createStoryConfidenceBadge } from './news/confidence-label';
 
 function paragraph(text: string, className?: string): HTMLParagraphElement {
   const element = document.createElement('p');
@@ -13,10 +14,7 @@ function paragraph(text: string, className?: string): HTMLParagraphElement {
 
 function evidenceLine(title: string, assessment: StoryAssessment): HTMLLIElement {
   const line = document.createElement('li');
-  const badge = document.createElement('span');
-  badge.className = `story-confidence confidence-${assessment.tier.toLowerCase()}`;
-  badge.textContent = assessment.tier;
-  badge.title = assessment.reason;
+  const badge = createStoryConfidenceBadge(assessment);
   line.append(badge, document.createTextNode(` ${title} `));
   const sources = document.createElement('span');
   sources.className = 'family-facts-sources';

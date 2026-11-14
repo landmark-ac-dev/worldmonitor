@@ -116,6 +116,7 @@ import { AuthHeaderWidget } from '@/components/AuthHeaderWidget';
 import { t } from '@/services/i18n';
 import { getPanelDisplayName } from '@/services/panel-display-name';
 import { TvModeController } from '@/services/tv-mode';
+import { retainSituationRoomParams } from '@/services/situation-room-settings';
 import { getAuthState, subscribeAuthState } from '@/services/auth-state';
 import { hasEmbedAccessForAccount, onEntitlementChange } from '@/services/entitlements';
 import { evaluateAvailableExportFormats, evaluateExportGate, exportLockToGateReason } from '@/services/gates/export';
@@ -507,7 +508,7 @@ export class EventHandlerManager implements AppModule {
   }
 
   private setupTvMode(): void {
-    if (SITE_VARIANT !== 'happy') return;
+    if (SITE_VARIANT !== 'happy' || this.ctx.isSituationRoom) return;
 
     const tvBtn = document.getElementById('tvModeBtn');
     const tvExitBtn = document.getElementById('tvExitBtn');
@@ -1699,7 +1700,7 @@ export class EventHandlerManager implements AppModule {
     // A deep-linked brief loads a lazy chunk and its data first; until it
     // shows, keep its country in the URL so a refresh or copied link keeps it.
     const pending = isCountryVisible ? null : this.ctx.pendingCountryBrief;
-    return buildMapUrl(baseUrl, {
+    return retainSituationRoomParams(buildMapUrl(baseUrl, {
       view: state.view,
       zoom: state.zoom,
       center,
@@ -1708,7 +1709,7 @@ export class EventHandlerManager implements AppModule {
       country: isCountryVisible ? code : pending?.code,
       expanded: (isCountryVisible ? briefPage?.getIsMaximized?.() : pending?.expanded) ? true : undefined,
       chokepoint: !isCountryVisible && !pending ? (this.ctx.activeChokepoint ?? undefined) : undefined,
-    });
+    }), window.location.href);
   }
 
   private getEmbedUrl(): string | null {

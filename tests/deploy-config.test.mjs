@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { MACHINE_READABLE_URLS } from '../scripts/build-sitemap.mjs';
 import { nonDefaultLandingLocales } from '../shared/indexable-landing-locales.ts';
 import { dirname, join, relative, resolve, sep } from 'node:path';
+import { resolveBashExecutable } from './_lib/bash-executable.mjs';
 function readFileSync(path, options) {
   const content = originalReadFileSync(path, options);
   if (typeof content === 'string') {
@@ -835,7 +836,7 @@ describe('crawlable content corpus deployment contracts', () => {
         git('add', path);
         git('commit', '-qm', path);
         assert.throws(
-          () => execFileSync('/bin/bash', [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
+          () => execFileSync(resolveBashExecutable(), [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
             cwd: fixture,
             env: { ...fixtureEnv, VERCEL_GIT_COMMIT_REF: 'main', VERCEL_GIT_PREVIOUS_SHA: previous },
           }),
@@ -844,7 +845,7 @@ describe('crawlable content corpus deployment contracts', () => {
         );
         git('update-ref', 'refs/remotes/origin/main', previous);
         assert.throws(
-          () => execFileSync('/bin/bash', [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
+          () => execFileSync(resolveBashExecutable(), [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
             cwd: fixture,
             env: { ...fixtureEnv, VERCEL_GIT_COMMIT_REF: 'feature/source-catalog' },
           }),
@@ -887,7 +888,7 @@ describe('crawlable content corpus deployment contracts', () => {
         git('commit', '-qm', paths.join(', '));
         git('update-ref', 'refs/remotes/origin/main', previous);
         for (const ref of ['main', 'feature/prediction-policy']) {
-          const result = spawnSync('/bin/bash', [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
+          const result = spawnSync(resolveBashExecutable(), [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
             cwd: fixture,
             env: { ...fixtureEnv, VERCEL_GIT_COMMIT_REF: ref, VERCEL_GIT_PREVIOUS_SHA: previous },
             encoding: 'utf8',
@@ -918,7 +919,7 @@ describe('crawlable content corpus deployment contracts', () => {
       git('add', 'README.md');
       git('commit', '-qm', 'base');
       const deployed = git('rev-parse', 'HEAD').trim();
-      const run = (previous) => spawnSync('/bin/bash', [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
+      const run = (previous) => spawnSync(resolveBashExecutable(), [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
         cwd: fixture,
         env: { ...fixtureEnv, VERCEL_GIT_COMMIT_REF: 'main', VERCEL_GIT_PREVIOUS_SHA: previous },
         encoding: 'utf8',
@@ -957,7 +958,7 @@ describe('crawlable content corpus deployment contracts', () => {
       git('add', 'README.md');
       git('commit', '-qm', 'base');
       const deployed = git('rev-parse', 'HEAD').trim();
-      const run = (previous) => spawnSync('/bin/bash', [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
+      const run = (previous) => spawnSync(resolveBashExecutable(), [resolve(__dirname, '../scripts/vercel-ignore.sh')], {
         cwd: fixture,
         env: { ...fixtureEnv, VERCEL_GIT_COMMIT_REF: 'feat/env-flag', VERCEL_GIT_PREVIOUS_SHA: previous },
         encoding: 'utf8',

@@ -4032,7 +4032,7 @@ export class App {
         { name: 'weather', fn: () => this.dataLoader.loadWeatherAlerts(), interval: REFRESH_INTERVALS.weather },
         { name: 'flights', fn: () => this.dataLoader.loadFlightDelays(), interval: REFRESH_INTERVALS.flights },
       );
-      if (CYBER_LAYER_ENABLED) lanes.push({
+      if (CYBER_LAYER_ENABLED || this.state.isSituationRoom) lanes.push({
         name: 'cyberThreats', interval: REFRESH_INTERVALS.cyberThreats,
         fn: () => {
           this.state.cyberThreatsCache = null;
@@ -4121,7 +4121,7 @@ export class App {
           name: 'cyberThreats', fn: () => {
             this.state.cyberThreatsCache = null;
             return this.dataLoader.loadCyberThreats();
-          }, intervalMs: REFRESH_INTERVALS.cyberThreats, condition: () => CYBER_LAYER_ENABLED && (this.state.mapLayers.cyberThreats || this.state.isSituationRoom === true)
+          }, intervalMs: REFRESH_INTERVALS.cyberThreats, condition: () => this.state.isSituationRoom === true || (CYBER_LAYER_ENABLED && this.state.mapLayers.cyberThreats)
         },
       ]);
     }

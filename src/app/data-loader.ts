@@ -54,6 +54,7 @@ import { fetchPredictionCandidates, reprioritizeMarketsForRegion as reprioritize
 import {
   fetchEarthquakes,
   fetchWeatherAlerts,
+  getWeatherDataState,
   fetchCanadaRoads,
   CANADA_ROAD_FRESHNESS_IDS,
   getCanadaRoadSourceStates,
@@ -1417,7 +1418,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cables', task: () => runGuarded('cables', () => this.loadCableActivity()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cableHealth', task: () => runGuarded('cableHealth', () => this.loadCableHealth()) });
     if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.flights || this.ctx.isSituationRoom)) tasks.push({ name: 'flights', task: () => runGuarded('flights', () => this.loadFlightDelays()) });
-    if (SITE_VARIANT !== 'happy' && CYBER_LAYER_ENABLED && (this.ctx.mapLayers.cyberThreats || this.ctx.isSituationRoom)) tasks.push({ name: 'cyberThreats', task: () => runGuarded('cyberThreats', () => this.loadCyberThreats()) });
+    if (SITE_VARIANT !== 'happy' && (this.ctx.isSituationRoom || (CYBER_LAYER_ENABLED && this.ctx.mapLayers.cyberThreats))) tasks.push({ name: 'cyberThreats', task: () => runGuarded('cyberThreats', () => this.loadCyberThreats()) });
     if (IRAN_ATTACKS_ENABLED && SITE_VARIANT !== 'happy' && !isDesktopRuntime() && (this.ctx.mapLayers.iranAttacks || shouldLoadAny(['cii', 'strategic-risk', 'strategic-posture']))) tasks.push({ name: 'iranAttacks', task: () => runGuarded('iranAttacks', () => this.loadIranEvents()) });
     if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.techEvents || SITE_VARIANT === 'tech')) tasks.push({ name: 'techEvents', task: () => runGuarded('techEvents', () => this.loadTechEvents()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.satellites && this.ctx.map?.isGlobeMode?.()) tasks.push({ name: 'satellites', task: () => runGuarded('satellites', () => this.loadSatellites()) });
@@ -2344,6 +2345,7 @@ export class DataLoaderManager implements AppModule {
     domain: SituationRoomDomain,
     state: SituationRoomSourceState['state'],
     sourceUpdatedAt: number | null = null,
+    cachedAt: number | null = null,
   ): void {
     if (this.ctx.isDestroyed) return;
     const sources = this.ctx.situationRoomSources ??= {};
@@ -2352,8 +2354,8 @@ export class DataLoaderManager implements AppModule {
       enabled: true, state,
       // Receipt and source time are separate. A resolved breaker may return
       // cached data; the TV model never calls this receipt provider freshness.
-      receivedAt: state === 'available' ? Date.now() : previous?.receivedAt ?? null,
-      sourceUpdatedAt: state === 'available' ? sourceUpdatedAt : previous?.sourceUpdatedAt ?? null,
+      receivedAt: state === 'available' ? Date.now() : state === 'cached' ? cachedAt : previous?.receivedAt ?? null,
+      sourceUpdatedAt: state === 'available' || state === 'cached' ? sourceUpdatedAt : previous?.sourceUpdatedAt ?? null,
     };
   }
 
@@ -3720,7 +3722,9 @@ export class DataLoaderManager implements AppModule {
     }
     this.ctx.intelligenceCache.weatherAlerts = merged;
     // Weather onset/expiry dates are not provider update timestamps.
-    this.recordSituationRoomSource('weather', alertsResult.status === 'rejected' ? 'retained' : 'available');
+    const weatherState = getWeatherDataState();
+    this.recordSituationRoomSource('weather', alertsResult.status === 'rejected' || weatherState.mode === 'unavailable' ? 'retained'
+      : weatherState.mode === 'cached' ? 'cached' : 'available', null, weatherState.timestamp);
     this.ctx.map?.setWeatherAlerts(merged);
     this.ctx.map?.setLayerReady('weather', merged.length > 0);
     this.ctx.statusPanel?.updateFeed('Weather', { status: 'ok', itemCount: merged.length });
@@ -4154,7 +4158,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadCyberThreats(): Promise<void> {
-    if (!CYBER_LAYER_ENABLED) {
+    if (!CYBER_LAYER_ENABLED && !this.ctx.isSituationRoom) {
       this.ctx.mapLayers.cyberThreats = false;
       this.ctx.map?.setLayerReady('cyberThreats', false);
       return;
@@ -4168,13 +4172,15 @@ export class DataLoaderManager implements AppModule {
     }
 
     try {
-      const { fetchCyberThreats } = await import('@/services/cyber');
+      const { fetchCyberThreats, getCyberThreatsDataState } = await import('@/services/cyber');
       const threats = await fetchCyberThreats({ limit: 500, days: 14 });
       this.ctx.cyberThreatsCache = threats;
       this.ctx.situationRoomCyberThreats = threats;
-      this.recordSituationRoomSource('cyber', 'available', this.newestSituationRoomSourceTime(
+      const cyberState = getCyberThreatsDataState();
+      this.recordSituationRoomSource('cyber', cyberState.mode === 'unavailable' ? 'error'
+        : cyberState.mode === 'cached' ? 'cached' : 'available', this.newestSituationRoomSourceTime(
         threats.map((item) => item.lastSeen ? Date.parse(item.lastSeen) : undefined),
-      ));
+      ), cyberState.timestamp);
       this.ctx.map?.setCyberThreats(threats);
       this.ctx.map?.setLayerReady('cyberThreats', threats.length > 0);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'ok', itemCount: threats.length });
@@ -4402,14 +4408,17 @@ export class DataLoaderManager implements AppModule {
 
   async loadFlightDelays(): Promise<void> {
     try {
-      const { fetchFlightDelays } = await import('@/services/aviation');
+      const { fetchFlightDelays, getFlightDelaysDataState } = await import('@/services/aviation');
       const delays = await fetchFlightDelays();
       this.ctx.map?.setFlightDelays(delays);
       this.ctx.map?.setLayerReady('flights', delays.length > 0);
       this.ctx.intelligenceCache.flightDelays = delays;
-      this.recordSituationRoomSource('aviation', 'available', this.newestSituationRoomSourceTime(
-        delays.map((item) => item.updatedAt.getTime()),
-      ));
+      const hasCoverage = delays.some((item) => item.severity !== 'unknown');
+      const aviationState = getFlightDelaysDataState();
+      this.recordSituationRoomSource('aviation', !hasCoverage || aviationState.mode === 'unavailable' ? 'error'
+        : aviationState.mode === 'cached' ? 'cached' : 'available', this.newestSituationRoomSourceTime(
+        delays.filter((item) => item.severity !== 'unknown' && item.severity !== 'normal').map((item) => item.updatedAt.getTime()),
+      ), aviationState.timestamp);
       this.ctx.statusPanel?.updateFeed('Flights', {
         status: 'ok',
         itemCount: delays.length,

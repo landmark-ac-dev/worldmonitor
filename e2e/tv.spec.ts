@@ -7,7 +7,7 @@ import { BROWSER_NEWS_CATALOG } from '../src/config/news-catalog.browser.generat
 // incident evidence. No provider requests leave this controlled browser fixture.
 const INITIAL_TIME = new Date('2026-11-13T18:00:00Z'); // Noon in Chicago, not UTC.
 const QUIET_STORAGE_KEY = 'wm-tv-quiet-hours-v1';
-const SCENES = ['facts', 'patterns', 'aviation', 'cyber', 'finance', 'weather'];
+const SCENES = ['facts', 'patterns', 'aviation', 'cyber', 'finance', 'weather', 'live-tv'];
 const NEWS_CATEGORIES = [...new Set(Object.values(BROWSER_NEWS_CATALOG.editions)
   .flatMap(edition => Object.keys(edition))), 'intel'];
 const LONG_SUFFIX = 'across the eastern district and surrounding communities as local officials coordinate their response and residents await further information from the responsible authorities';
@@ -82,7 +82,7 @@ async function setup(page: Page, path = '/tv?quiet=off', options: { dense?: bool
   await expect(page.locator('.tv-reader')).toBeFocused();
   await expect(page.locator('.tv-footer')).toHaveAttribute('data-paused', 'true');
   await expect(page.locator('.tv-reader .tv-story')).toHaveCount(3);
-  await expect(page.locator('.tv-overall-status')).toHaveText(options.incomplete ? 'Watching' : 'Active');
+  await expect(page.locator('.tv-overall-status')).toHaveText('Watching');
   return { feedRequests: () => feedRequests, useRefreshedReports: () => { refreshed = true; } };
 }
 
@@ -208,7 +208,7 @@ test('TV marks offline coverage unknown and refreshes reports on reconnect', asy
   await expect.poll(fixture.feedRequests).toBeGreaterThan(before);
   await expect(page.locator('.tv-connectivity')).not.toContainText('Offline');
   await expect(page.locator('.tv-reader')).toContainText('CISA publishes updated source-checking guidance after reconnect');
-  await expect(page.locator('.tv-overall-status')).toHaveText('Active');
+  await expect(page.locator('.tv-overall-status')).toHaveText('Watching');
 });
 
 test('TV keeps five-domain evidence and long operational records readable at 1080p and 4K', async ({ page }, testInfo) => {
@@ -273,4 +273,30 @@ test('Enter activates a focused evidence link without toggling rotation', async 
   await expect(page.locator('.tv-footer')).toHaveAttribute('data-paused', 'true');
   await popup.close();
   await expect(page.locator('.tv-reader')).toHaveAttribute('data-scene', 'facts');
+});
+
+test('disconnected feeds stay explicit and the remote controls a muted optional corner video', async ({ page }) => {
+  await setup(page);
+  await expect(page.locator('.tv-video')).toBeHidden();
+  for (const scene of ['aviation', 'cyber', 'finance', 'weather']) {
+    await page.locator(`.tv-scene[data-scene="${scene}"]`).click();
+    await expect(page.locator('.tv-reader')).toContainText('Feed not connected');
+  }
+  await page.keyboard.press('ArrowUp');
+  const toolbar = page.getByRole('toolbar', { name: 'TV display controls' });
+  // Reach the corner toggle using only the same d-pad keys a TV remote sends.
+  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
+  await expect(toolbar.getByRole('button', { name: 'Corner video off' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.tv-video')).toBeVisible();
+  await expect(page.locator('.tv-video')).toHaveAttribute('data-mode', 'pip');
+  await expect(page.locator('.tv-video')).toHaveAttribute('data-muted', 'true');
+  await page.locator('.tv-scene[data-scene="live-tv"]').click();
+  await expect(page.locator('.tv-video')).toHaveCount(1);
+  await expect(page.locator('.tv-video')).toHaveAttribute('data-mode', 'scene');
+  await page.keyboard.press('p');
+  await expect(page.locator('.tv-video')).toBeVisible();
+  await page.locator('.tv-scene[data-scene="facts"]').click();
+  await expect(page.locator('.tv-video')).toBeHidden();
 });

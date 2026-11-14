@@ -1,0 +1,21 @@
+FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
+
+WORKDIR /app
+ENV npm_config_install_links=true
+
+# Reuse the seeders' committed dependency lock, including fast-xml-parser and
+# proxy helpers. As in Dockerfile.relay, no native install hooks are needed.
+COPY scripts/package.json scripts/package-lock.json ./scripts/
+COPY scripts/vendor/deepmerge/ ./scripts/vendor/deepmerge/
+RUN npm ci --prefix scripts --omit=dev --omit=optional --ignore-scripts
+
+# Keep helper imports intact when either existing seeder changes.
+COPY scripts/ ./scripts/
+COPY shared/ ./shared/
+# Aviation bootstrap reads this registry to preserve the RPC's monitored hubs.
+COPY src/config/airports.ts ./src/config/airports.ts
+COPY docker/tv-seed-runner.mjs ./docker/tv-seed-runner.mjs
+
+# No ports or credential files: Compose provides only its local Redis bearer.
+USER node
+CMD ["node", "docker/tv-seed-runner.mjs"]

@@ -7,6 +7,7 @@ import {
 } from '@/services/situation-room-settings';
 import { mountInstallEntry } from '@/services/pwa-install';
 import { safeStorageGet, safeStorageSet } from '@/utils/safe-storage';
+import { SituationRoomVideo } from './situation-room-video';
 
 interface SituationRoomOptions {
   container: HTMLElement;
@@ -48,6 +49,10 @@ export class SituationRoomController {
   private readonly dimButton = element('button', 'tv-control', 'Dim now');
   private readonly playButton = element('button', 'tv-control', 'Resume rotation');
   private readonly installMount = element('div', 'tv-install');
+  private readonly pipButton = element('button', 'tv-control');
+  private readonly muteButton = element('button', 'tv-control');
+  private readonly videoPlayButton = element('button', 'tv-control');
+  private readonly video = new SituationRoomVideo(() => this.updateVideoControls());
   private model: SituationRoomModel;
   private index = 0;
   private paused = false;
@@ -128,7 +133,19 @@ export class SituationRoomController {
     back.addEventListener('click', () => this.closeControls());
     const dashboard = element('a', 'tv-control', 'Open dashboard');
     dashboard.href = '/dashboard';
-    this.toolbar.append(this.playButton, this.dimButton, this.quietButton, fullscreen, retry, this.installMount, dashboard, back);
+    this.pipButton.addEventListener('click', () => this.video.togglePip());
+    this.muteButton.addEventListener('click', () => this.video.toggleMuted());
+    this.videoPlayButton.addEventListener('click', () => this.video.togglePaused());
+    const previousChannel = element('button', 'tv-control', 'Previous channel');
+    const nextChannel = element('button', 'tv-control', 'Next channel');
+    const retryVideo = element('button', 'tv-control', 'Retry video');
+    previousChannel.addEventListener('click', () => this.video.nextChannel(-1));
+    nextChannel.addEventListener('click', () => this.video.nextChannel(1));
+    retryVideo.addEventListener('click', () => this.video.retry());
+    this.toolbar.append(this.playButton, this.dimButton, this.quietButton, fullscreen, retry,
+      this.pipButton, this.muteButton, this.videoPlayButton, previousChannel, nextChannel, retryVideo,
+      this.installMount, dashboard, back);
+    this.updateVideoControls();
     this.toolbar.querySelectorAll('button').forEach(button => { button.type = 'button'; });
 
     const hint = element('div', 'tv-remote-hint');
@@ -152,7 +169,7 @@ export class SituationRoomController {
       grid.inert = true;
       this.cleanup.push(() => { grid.inert = previous; });
     }
-    this.options.container.append(this.topbar, this.footer, this.toolbar);
+    this.options.container.append(this.topbar, this.footer, this.toolbar, this.video.element);
     this.renderNavigation();
   }
 
@@ -194,12 +211,13 @@ export class SituationRoomController {
   private renderSlide(): void {
     const slide = this.model.slides[this.index];
     if (!slide) return;
+    this.video.showScene(slide.id === 'live-tv');
     const key = JSON.stringify(slide);
     if (key !== this.contentKey) {
       this.contentKey = key;
       this.reader.dataset.scene = slide.id;
       const heading = element('div', 'tv-scene-heading');
-      heading.append(element('span', 'tv-eyebrow', slide.kicker), element('span', 'tv-scene-number', `${String(this.index + 1).padStart(2, '0')} / 06`), element('h1', '', slide.title));
+      heading.append(element('span', 'tv-eyebrow', slide.kicker), element('span', 'tv-scene-number', `${String(this.index + 1).padStart(2, '0')} / ${String(this.model.slides.length).padStart(2, '0')}`), element('h1', '', slide.title));
       const list = element('ol', 'tv-story-list');
       const rows = slide.items.slice(0, slide.id === 'patterns' || slide.id === 'facts' ? 3 : 2);
       list.dataset.count = String(rows.length);
@@ -227,7 +245,8 @@ export class SituationRoomController {
         }
         list.append(row);
       }
-      const body = rows.length ? list : element('div', 'tv-empty', slide.emptyMessage);
+      const body = slide.id === 'live-tv' ? element('div', 'tv-video-space')
+        : rows.length ? list : element('div', 'tv-empty', slide.emptyMessage);
       const remainder = slide.items.length > rows.length
         ? `Showing ${rows.length} of ${slide.items.length} records. Open the dashboard for more. ` : '';
       const note = element('p', 'tv-scene-footnote', remainder + slide.footnote);
@@ -236,6 +255,13 @@ export class SituationRoomController {
     for (const [i, node] of [...this.navigation.children].entries()) {
       node.setAttribute('aria-current', i === this.index ? 'true' : 'false');
     }
+  }
+
+  private updateVideoControls(): void {
+    this.pipButton.textContent = this.video.pipEnabled ? 'Corner video on' : 'Corner video off';
+    this.pipButton.setAttribute('aria-pressed', String(this.video.pipEnabled));
+    this.muteButton.textContent = this.video.isMuted ? 'Unmute video' : 'Mute video';
+    this.videoPlayButton.textContent = this.video.isPaused ? 'Play video' : 'Pause video';
   }
 
   private tick(): void {
@@ -332,7 +358,7 @@ export class SituationRoomController {
         event.preventDefault(); event.stopImmediatePropagation(); this.closeControls(); return;
       }
     }
-    const handled = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' ', 'MediaPlayPause', 'ContextMenu', 'Escape', 'f', 'F', 'd', 'D'].includes(key);
+    const handled = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' ', 'MediaPlayPause', 'ContextMenu', 'Escape', 'f', 'F', 'd', 'D', 'p', 'P', 'm', 'M', '[', ']'].includes(key);
     if (!handled || event.repeat) return;
     event.preventDefault(); event.stopImmediatePropagation();
     if (key === 'ArrowLeft' || key === 'ArrowRight') this.step(key === 'ArrowLeft' ? -1 : 1);
@@ -340,6 +366,9 @@ export class SituationRoomController {
     else if (key === 'ArrowDown') this.setPaused(false);
     else if (key === 'f' || key === 'F') void this.fullscreen();
     else if (key === 'd' || key === 'D') this.toggleDim();
+    else if (key === 'p' || key === 'P') this.video.togglePip();
+    else if (key === 'm' || key === 'M') this.video.toggleMuted();
+    else if (key === '[' || key === ']') this.video.nextChannel(key === '[' ? -1 : 1);
     else this.setPaused(!this.paused);
     void this.acquireWakeLock();
   };
@@ -388,7 +417,7 @@ export class SituationRoomController {
     this.options.reconnect();
   }
 
-  private readonly onOnline = (): void => { this.refresh(); this.reconnect(); };
+  private readonly onOnline = (): void => { this.refresh(); this.reconnect(); this.video.retry(); };
   private readonly onOffline = (): void => { this.refresh(); };
   private readonly onPageHide = (): void => { this.releaseWakeLock(); };
   private readonly onPageShow = (): void => { this.onVisibility(); };
@@ -404,6 +433,7 @@ export class SituationRoomController {
     clearInterval(this.timer);
     if (this.refreshTimer !== null) clearTimeout(this.refreshTimer);
     this.cleanup.forEach(fn => fn());
+    this.video.destroy();
     this.releaseWakeLock();
     for (const node of [this.topbar, this.reader, this.mapCaption, this.statusCard, this.footer, this.toolbar]) node.remove();
     delete document.documentElement.dataset.situationRoom;

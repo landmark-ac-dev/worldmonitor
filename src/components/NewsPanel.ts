@@ -21,6 +21,8 @@ import { getPanelScopeBehaviour } from '@/config/panel-scope';
 import { headlineCountries, MAX_ATTRIBUTION_CHARS, withoutOwnSourceSuffix } from '@/services/scope-attribution';
 import type { ResolvedScope } from '@/services/tab-focus';
 import { effectivePubDateMs } from '@/services/feed-date';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 
 
 type SortMode = 'relevance' | 'newest';
@@ -56,6 +58,17 @@ export interface NewsPanelServices {
 }
 
 export class NewsPanel extends Panel {
+  private confidenceCorpusProvider?: () => readonly NewsItem[];
+  private assessConfidence = createStoryAssessor([]);
+
+  public setConfidenceCorpusProvider(provider: () => readonly NewsItem[]): void {
+    this.confidenceCorpusProvider = provider;
+  }
+
+  private refreshConfidenceAssessor(items: readonly NewsItem[]): void {
+    this.assessConfidence = createStoryAssessor([...(this.confidenceCorpusProvider?.() ?? []), ...items]);
+  }
+
   private readonly newsServices: NewsPanelServices;
   private clusteredMode = true;
   private deviationEl: HTMLElement | null = null;
@@ -614,6 +627,7 @@ export class NewsPanel extends Panel {
   }
 
   private renderFlat(items: NewsItem[]): void {
+    this.refreshConfidenceAssessor(items);
     this.lastRawItems = items;
     this.lastRawClusters = null;
 
@@ -650,9 +664,10 @@ export class NewsPanel extends Panel {
         const provenance = renderPrimarySourceProvenance(item.source);
         const titleLink = sanitizeUrl(item.link);
         return `
-      <div class="item ${item.isAlert ? 'alert' : ''}" data-news-id="${escapeHtml(item.link)}" data-news-title="${escapeHtml(item.title)}" data-news-source="${escapeHtml(item.source)}" ${item.monitorColor ? `style="border-inline-start-color: ${escapeHtml(item.monitorColor)}"` : ''}>
+      <div class="item" data-news-id="${escapeHtml(item.link)}" data-news-title="${escapeHtml(item.title)}" data-news-source="${escapeHtml(item.source)}" ${item.monitorColor ? `style="border-inline-start-color: ${escapeHtml(item.monitorColor)}"` : ''}>
         <div class="item-source">
           ${escapeHtml(item.source)}
+          ${renderStoryConfidence(this.assessConfidence(item))}
           ${renderCredibilityBadge(item.source, item)}
           ${provenance.riskBadge}
           ${provenance.facts}
@@ -661,7 +676,6 @@ export class NewsPanel extends Panel {
           ${item.storyMeta?.phase === 'breaking' ? '<span class="phase-badge breaking">BREAKING</span>' : ''}
           ${item.storyMeta?.phase === 'developing' ? `<span class="phase-badge developing">DEVELOPING${item.storyMeta.mentionCount > 1 ? ` ×${item.storyMeta.mentionCount}` : ''}</span>` : ''}
           ${item.storyMeta?.phase === 'sustained' ? '<span class="phase-badge sustained">ONGOING</span>' : ''}
-          ${item.isAlert ? '<span class="alert-tag">ALERT</span>' : ''}
           ${scopeTagHtml(this.scopeRows.get(newsScopeKey(item)))}
         </div>
         ${titleLink ? `<a class="item-title" href="${titleLink}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>` : `<span class="item-title">${escapeHtml(item.title)}</span>`}
@@ -679,6 +693,7 @@ export class NewsPanel extends Panel {
   }
 
   private renderClusters(clusters: ClusteredEvent[]): void {
+    this.refreshConfidenceAssessor(clusters.flatMap(cluster => cluster.allItems));
     this.lastRawClusters = clusters;
     this.lastRawItems = null;
 
@@ -902,7 +917,6 @@ export class NewsPanel extends Panel {
     const itemClasses = [
       'item',
       'clustered',
-      cluster.isAlert ? 'alert' : '',
       shouldHighlight ? 'item-new-highlight' : '',
       isNew ? 'item-new' : '',
     ].filter(Boolean).join(' ');
@@ -913,6 +927,12 @@ export class NewsPanel extends Panel {
         <div class="item-source">
           ${tierBadge}
           ${escapeHtml(cluster.primarySource)}
+          ${renderStoryConfidence(this.assessConfidence({
+            ...(cluster.allItems.find(item => item.link === cluster.primaryLink && item.title === cluster.primaryTitle) ?? {
+              pubDate: new Date(NaN), pubDateMissing: true, isAlert: false,
+            }),
+            title: cluster.primaryTitle, source: cluster.primarySource, link: cluster.primaryLink,
+          }))}
           ${renderCredibilityBadge(cluster.primarySource, cluster.allItems.find(item => item.source === cluster.primarySource) ?? cluster.allItems[0])}
           ${primaryPropBadge}
           ${primaryProvenanceFacts}
@@ -922,7 +942,6 @@ export class NewsPanel extends Panel {
           ${corroborationFlagHtml(corroboration)}
           ${velocityBadge}
           ${sentimentBadge}
-          ${cluster.isAlert ? '<span class="alert-tag">ALERT</span>' : ''}
           ${categoryBadge}
           ${riskBadge}
           ${scopeTagHtml(this.clusterScopeRow(cluster))}

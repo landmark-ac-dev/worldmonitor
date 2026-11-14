@@ -22,6 +22,8 @@ import { CountryHistory } from './CountryHistory';
 import { getCountryInfrastructure } from '@/services/related-assets';
 import type { PredictionMarket } from '@/services/prediction';
 import type { AssetType, NewsItem, RelatedAsset } from '@/types';
+import { createStoryAssessor } from '@/services/family-facts';
+import { createStoryConfidenceBadge } from './news/confidence-label';
 import { sanitizeUrl, escapeHtml } from '@/utils/sanitize';
 import { chokepointScoreEvidence, computeAlternativeSuppliers, type EnrichedExporter } from '@/utils/supplier-route-risk';
 import { formatIntelBrief, renderBriefEvidenceFooter, type IntelBriefEvidence } from '@/utils/format-intel-brief';
@@ -554,6 +556,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
 
   public updateNews(headlines: NewsItem[]): void {
     if (!this.newsBody) return;
+    const assess = createStoryAssessor(headlines);
     this.newsBody.replaceChildren();
     this.currentHeadlines = [];
 
@@ -593,6 +596,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       }
 
       const top = this.el('div', 'cdp-news-top');
+      top.append(createStoryConfidenceBadge(assess(item)));
       const tier = declaredSourceTier(item.source);
       const sourceType = getSourceType(item.source);
       if (tier !== null) {

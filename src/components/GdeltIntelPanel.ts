@@ -3,6 +3,7 @@ import { sanitizeUrl } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { h, setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
 import { miniSparkline } from '@/utils/sparkline';
+import { createStoryConfidenceBadge } from './news/confidence-label';
 import {
   getIntelTopics,
   fetchTopicIntelligence,
@@ -175,6 +176,11 @@ export class GdeltIntelPanel extends Panel {
     },
       h('div', { className: 'article-header' },
         h('span', { className: 'article-source' }, domain),
+        createStoryConfidenceBadge({
+          tier: 'Unconfirmed',
+          reason: 'This indexed article has not been matched to an official publication or two approved publisher feeds. An indexed domain alone does not verify its headline.',
+          sources: [],
+        }),
         h('span', { className: 'article-time' }, timeAgo),
       ),
       h('div', { className: 'article-title' }, article.title),

@@ -24,6 +24,7 @@ export {
 
 // Panel configuration for tech/AI analysis
 export const DEFAULT_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   map: { name: 'Global Tech Map', enabled: true, priority: 1 },
   'live-news': { name: 'Tech Headlines', enabled: true, priority: 1 },
   events: { name: 'Tech Events', enabled: true, priority: 1 },

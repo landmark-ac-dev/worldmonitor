@@ -33,6 +33,7 @@ export const LAYER_KEY_MAP: Record<string, keyof MapLayers> = {
 };
 
 export const COMMANDS: Command[] = [
+  { id: 'panel:family-facts', keywords: ['family', 'facts', 'confirmed', 'credible', 'true', 'copy paste'], label: "What's actually true", icon: '\u2713', category: 'panels' },
   // Navigation (region switching)
   { id: 'nav:global', keywords: ['global', 'world', 'reset', 'home'], label: 'Map: Global view', icon: '\u{1F30D}', category: 'navigate' },
   { id: 'nav:mena', keywords: ['mena', 'middle east', 'mideast'], label: 'Map: Middle East & North Africa', icon: '\u{1F54C}', category: 'navigate' },

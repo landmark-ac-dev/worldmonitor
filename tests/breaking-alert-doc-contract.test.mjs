@@ -37,6 +37,7 @@ describe('breaking-alert documentation contract', () => {
   it('documents exactly the wired English banner origins', () => {
     const labels = new Map([
       ['RSS alert', 'rss_alert'],
+      ['Family pattern', 'family_pattern'],
       ['Keyword spike', 'keyword_spike'],
       ['Hotspot escalation', 'hotspot_escalation'],
       ['Military surge', 'military_surge'],
@@ -57,6 +58,7 @@ describe('breaking-alert documentation contract', () => {
   it('documents exactly the wired Chinese banner origins', () => {
     const labels = new Map([
       ['RSS 警报', 'rss_alert'],
+      ['家庭模式警报', 'family_pattern'],
       ['关键词飙升', 'keyword_spike'],
       ['热点升级', 'hotspot_escalation'],
       ['军事激增', 'military_surge'],

@@ -6,6 +6,8 @@ import { createTimeoutSignal } from '@/services/timeout-signal';
 //   the relay can render a context line without a second Redis lookup.
 //   Enforced by tests/notification-relay-payload-audit.test.mjs.
 import type { NewsItem } from '@/types';
+import type { FamilyPattern } from '@/types/family-facts';
+import { buildFamilyBrief } from '@/services/family-facts';
 import type { OrefAlert } from '@/services/oref-alerts';
 import { getSourceTier } from '@/config/feeds';
 import { isDesktopRuntime, getRemoteApiBaseUrl } from '@/services/runtime';
@@ -25,7 +27,9 @@ export interface BreakingAlert {
   link?: string;
   threatLevel: 'critical' | 'high';
   timestamp: Date;
-  origin: 'rss_alert' | 'keyword_spike' | 'hotspot_escalation' | 'military_surge' | 'oref_siren';
+  origin: 'rss_alert' | 'keyword_spike' | 'hotspot_escalation' | 'military_surge' | 'oref_siren' | 'family_pattern';
+  /** Source-linked evidence for a local, multi-domain family pattern notice. */
+  familyPattern?: FamilyPattern;
   importanceScore?: number;
   /**
    * ISO-3166 alpha-2 country attribution, when the producer knows it (OREF
@@ -75,6 +79,9 @@ const DEFAULT_SETTINGS: AlertSettings = {
 };
 
 const dedupeMap = new Map<string, number>();
+// New articles in an already-noticed domain combination update the brief,
+// without repeatedly interrupting the family during this browser session.
+const familyPatternDedupe = new Set<string>();
 let lastGlobalAlertMs = 0;
 let lastGlobalAlertLevel: 'critical' | 'high' | null = null;
 let storageListener: ((e: StorageEvent) => void) | null = null;
@@ -200,7 +207,7 @@ function dispatchAlert(alert: BreakingAlert): void {
   saveDedupeMap();
   document.dispatchEvent(new CustomEvent('wm:breaking-news', { detail: alert }));
 
-  if (!RELAY_GATES_READY) {
+  if (alert.origin !== 'family_pattern' && !RELAY_GATES_READY) {
     void (async () => {
       const token = await getClerkToken();
       if (!token) { console.warn('[breaking-news-alerts] no Clerk token, skipping notify'); return; }
@@ -240,6 +247,31 @@ function dispatchAlert(alert: BreakingAlert): void {
       }
     })();
   }
+}
+
+/** One fresh, complete news snapshot; individual headlines never dispatch here. */
+export function checkFamilyPatternForBreakingAlerts(items: NewsItem[]): void {
+  const settings = getAlertSettings();
+  // Pattern notices are not critical warnings. Respect the quieter setting.
+  if (!settings.enabled || settings.sensitivity === 'critical-only' || isInStartupGrace()) return;
+  const pattern = buildFamilyBrief(items).pattern;
+  if (!pattern || pattern.domains.length < 2 || pattern.items.length < 2) return;
+  const key = `family-pattern:${[...pattern.domains].sort().join(':')}`;
+  if (familyPatternDedupe.has(key) || isDuplicate(key) || isGlobalCooldown('high')) return;
+  familyPatternDedupe.add(key);
+  const domains = pattern.domains.map((domain) => domain === 'finance' ? 'banking/finance' : domain);
+  dispatchAlert({
+    id: key,
+    headline: `Source-backed disruptions reported in ${domains.join(' and ')} within six hours.`,
+    source: 'Family facts',
+    // Existing banner scheduling priority only; family rendering never calls
+    // this a high-risk or critical event, nor infers a shared cause.
+    threatLevel: 'high',
+    timestamp: new Date(),
+    origin: 'family_pattern',
+    familyPattern: pattern,
+    corroboration: { state: 'unknown' },
+  });
 }
 
 export function checkBatchForBreakingAlerts(items: NewsItem[]): void {
@@ -360,6 +392,7 @@ export function destroyBreakingNewsAlerts(): void {
     storageListener = null;
   }
   dedupeMap.clear();
+  familyPatternDedupe.clear();
   cachedSettings = null;
   lastGlobalAlertMs = 0;
   lastGlobalAlertLevel = null;

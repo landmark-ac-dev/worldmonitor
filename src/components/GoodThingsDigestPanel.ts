@@ -4,6 +4,8 @@ import { generateSummary } from '@/services/summarization';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 
 
 /**
@@ -35,6 +37,7 @@ export class GoodThingsDigestPanel extends Panel {
     this.summaryAbort = new AbortController();
 
     const top5 = items.slice(0, 5);
+    const assess = createStoryAssessor(items);
 
     if (top5.length === 0) {
       // #6557: a settled empty state is authoritative content.
@@ -60,6 +63,7 @@ export class GoodThingsDigestPanel extends Panel {
             ${escapeHtml(item.title)}
           </a>
           <span class="digest-card-source">${escapeHtml(item.source)}</span>
+          ${renderStoryConfidence(assess(item))}
           <p class="digest-card-summary digest-card-summary--loading">${escapeHtml(t('components.goodThingsDigest.summarizing'))}</p>
         </div>
       `, "legacy direct innerHTML migration"));

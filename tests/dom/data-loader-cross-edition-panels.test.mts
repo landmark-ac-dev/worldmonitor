@@ -5,7 +5,7 @@ import type { ListFeedDigestResponse } from '@/generated/client/worldmonitor/new
 
 const mocks = vi.hoisted(() => ({
   fetchCategoryFeeds: vi.fn(),
-  checkBatchForBreakingAlerts: vi.fn(),
+  checkFamilyPatternForBreakingAlerts: vi.fn(),
   ingestHeadlines: vi.fn(),
   saved: new Map<string, { data: unknown; updatedAt: number }>(),
 }));
@@ -25,7 +25,7 @@ vi.mock('@/services/rss', async (importOriginal) => ({
 }));
 vi.mock('@/services/breaking-news-alerts', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/services/breaking-news-alerts')>(),
-  checkBatchForBreakingAlerts: mocks.checkBatchForBreakingAlerts,
+  checkFamilyPatternForBreakingAlerts: mocks.checkFamilyPatternForBreakingAlerts,
 }));
 vi.mock('@/services/trending-keywords', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/services/trending-keywords')>(),
@@ -106,7 +106,7 @@ describe('cross-edition panels read the digests of every edition that carries th
   beforeEach(() => {
     vi.unstubAllGlobals();
     mocks.fetchCategoryFeeds.mockReset();
-    mocks.checkBatchForBreakingAlerts.mockReset();
+    mocks.checkFamilyPatternForBreakingAlerts.mockReset();
     mocks.ingestHeadlines.mockReset();
     mocks.saved.clear();
   });
@@ -165,15 +165,13 @@ describe('cross-edition panels read the digests of every edition that carries th
     expect(editionsRequested(fetchMock).filter(e => e === 'tech')).toHaveLength(1);
   });
 
-  it('sends digest items through breaking alerts and trending headlines', async () => {
+  it('ingests trending headlines but defers alerts until the complete cross-category snapshot', async () => {
     vi.stubGlobal('fetch', digestFetch({ tech: editionDigest('podcasts', ['Show']) }));
     const loader = await makeLoader();
 
     await loader.loadNewsCategory('podcasts', feeds(['Show']), null, true, OPTIONS);
 
-    expect(mocks.checkBatchForBreakingAlerts).toHaveBeenCalledTimes(1);
-    const alerted = mocks.checkBatchForBreakingAlerts.mock.calls[0]![0] as NewsItemLike[];
-    expect(alerted.map(i => i.source)).toEqual(['Show', 'Show']);
+    expect(mocks.checkFamilyPatternForBreakingAlerts).not.toHaveBeenCalled();
     // Ingestion is async (dynamic import), so earlier tests' calls can land
     // here too; look for this panel's batch.
     await vi.waitFor(() => expect(mocks.ingestHeadlines.mock.calls.some(([batch]) =>
@@ -188,7 +186,7 @@ describe('cross-edition panels read the digests of every edition that carries th
 
     await loader.loadNewsCategory('podcasts', feeds(['Show']), null, true, OPTIONS);
 
-    expect(mocks.checkBatchForBreakingAlerts).not.toHaveBeenCalled();
+    expect(mocks.checkFamilyPatternForBreakingAlerts).not.toHaveBeenCalled();
   });
 
   it('shows only digest items; a source this language\'s digest omits is not fetched directly (digestLang)', async () => {
@@ -285,7 +283,7 @@ describe('cross-edition panels read the digests of every edition that carries th
     const firstPage = await makeLoader();
     const first = await firstPage.loadNewsCategory('markets', feeds(['Finance Wire', 'Commodity Desk']), null, true, OPTIONS);
     await vi.waitFor(() => expect(mocks.saved.size).toBe(2));
-    mocks.checkBatchForBreakingAlerts.mockClear();
+    mocks.checkFamilyPatternForBreakingAlerts.mockClear();
 
     vi.stubGlobal('fetch', digestFetch({}));
     const setRefreshDegraded = vi.fn();
@@ -298,7 +296,7 @@ describe('cross-edition panels read the digests of every edition that carries th
     expect(items.map(i => i.title).sort()).toEqual(first.map(i => i.title).sort());
     expect(setRefreshDegraded).toHaveBeenLastCalledWith(true);
     expect(recorded).toEqual([true]);
-    expect(mocks.checkBatchForBreakingAlerts).not.toHaveBeenCalled();
+    expect(mocks.checkFamilyPatternForBreakingAlerts).not.toHaveBeenCalled();
     expect(mocks.fetchCategoryFeeds).not.toHaveBeenCalled();
   });
 });

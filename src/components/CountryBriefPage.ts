@@ -5,6 +5,8 @@ import { t } from '@/services/i18n';
 import { getCSSColor, showToast } from '@/utils';
 import type { CountryScore } from '@/services/country-instability';
 import type { NewsItem } from '@/types';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 import type { PredictionMarket } from '@/services/prediction';
 import type { AssetType } from '@/types';
 import type { CountryBriefSignals } from '@/types';
@@ -601,6 +603,7 @@ export class CountryBriefPage implements CountryBriefPanel {
     if (!section || !content || headlines.length === 0) return;
 
     const items = headlines.slice(0, 8);
+    const assess = createStoryAssessor(headlines);
     this.currentHeadlineCount = items.length;
     this.currentHeadlines = items;
     section.style.display = '';
@@ -616,7 +619,7 @@ export class CountryBriefPage implements CountryBriefPanel {
         <span class="cb-news-threat" style="background:${threatColor}"></span>
         <div class="cb-news-body">
           <div class="cb-news-title">${escapeHtml(item.title)}</div>
-          <div class="cb-news-meta">${escapeHtml(item.source)} · ${timeAgo}</div>
+          <div class="cb-news-meta">${escapeHtml(item.source)} · ${timeAgo} ${renderStoryConfidence(assess(item))}</div>
         </div>`;
       if (safeUrl) {
         return `<a href="${safeUrl}" target="_blank" rel="noopener" class="cb-news-card" id="cb-news-${i + 1}">${cardBody}</a>`;

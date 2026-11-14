@@ -42,6 +42,17 @@ export type {
   SearchResultType,
 } from '@/components/search-types';
 import { declareOverlay } from '@/utils/open-modal';
+import type { NewsItem } from '@/types';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
+
+function searchNewsItem(value: unknown): NewsItem | null {
+  if (!value || typeof value !== 'object') return null;
+  const item = value as Partial<NewsItem>;
+  return typeof item.title === 'string' && typeof item.source === 'string' && typeof item.link === 'string'
+    && item.pubDate instanceof Date && typeof item.isAlert === 'boolean'
+    ? item as NewsItem : null;
+}
 
 const CATEGORY_KEYS: Record<string, string> = {
   navigate: 'commands.categories.navigate',
@@ -1037,12 +1048,23 @@ export class SearchModal {
       }
     }
 
+    const newsCorpus = this.sources.filter(source => source.type === 'news')
+      .flatMap(source => source.items.map(item => searchNewsItem(item.data)))
+      .filter((item): item is NewsItem => item !== null);
+    const assessNews = createStoryAssessor(newsCorpus);
     for (const result of this.results) {
+      const news = result.type === 'news' ? searchNewsItem(result.data) : null;
+      const confidence = result.type === 'news' ? renderStoryConfidence(
+        news && news.title === result.title ? assessNews(news) : {
+          tier: 'Unconfirmed', reason: 'This search result has no complete publisher evidence to assess.', sources: [],
+        },
+      ) : '';
       html += `
         <div class="search-result-item ${globalIndex === this.selectedIndex ? 'selected' : ''}" data-index="${globalIndex}">
           <span class="search-result-icon">${icons[result.type]}</span>
           <div class="search-result-content">
             <div class="search-result-title">${this.highlightMatch(result.title)}</div>
+            ${confidence}
             ${result.subtitle ? `<div class="search-result-subtitle">${escapeHtml(result.subtitle)}</div>` : ''}
           </div>
           <span class="search-result-type">${escapeHtml(t(`modals.search.types.${result.type}`) || result.type)}</span>

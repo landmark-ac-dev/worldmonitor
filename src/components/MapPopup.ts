@@ -49,6 +49,8 @@ import { bindCyberNetworkSection, renderCyberNetworkSection } from './cyber-netw
 import { renderPopupSourceLinks } from './map-popup-source-links';
 import { overlayHistory, type OverlayCloseOrigin, type OverlayOpenHandle } from '@/utils/overlay-history';
 import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 import { aptSectorLabel, aptTacticLabel, countryLabel, datacenterSectorLabel, isSameLocation, localizeRelativePlace, parseGdeltReportTitle, severityLabel, statusLabel, storageFacilityTypeLabel, weatherEventLabel } from './map-popup-i18n';
 
 
@@ -952,12 +954,15 @@ export class MapPopup {
 
   private renderNewsPopup(news: NewsPopupData): string {
     const coverage = corroborationLabelHtml(news.corroboration);
+    const confidence = renderStoryConfidence({
+      tier: 'Unconfirmed', reason: 'This map marker does not carry the original publisher evidence needed to assess its headline.', sources: [],
+    });
     return `
       <div class="popup-header">
         <span class="popup-title">${t('components.deckgl.tooltip.news')}</span>
         <button class="popup-close" aria-label="${t('common.close')}">×</button>
       </div>
-      <div class="popup-body"><p>${escapeHtml(news.title)}</p>${coverage ? `<p>${coverage}</p>` : ''}</div>
+      <div class="popup-body"><p>${escapeHtml(news.title)}</p>${confidence}${coverage ? `<p>${coverage}</p>` : ''}</div>
     `;
   }
 
@@ -1087,6 +1092,7 @@ export class MapPopup {
   }
 
   private renderHotspotPopup(hotspot: Hotspot, relatedNews?: NewsItem[]): string {
+    const assessNews = createStoryAssessor(relatedNews ?? []);
     const severityClass = hotspot.level || 'low';
     const severityText = escapeHtml(severityLabel(hotspot.level || 'low'));
     const localizedSubtext = hotspot.subtext ? this.getLocalizedHotspotSubtext(hotspot.subtext) : '';
@@ -1278,6 +1284,7 @@ export class MapPopup {
                   ${relatedNews.slice(0, 5).map(n => `
                     <div class="popup-news-item">
                       <span class="news-source">${escapeHtml(n.source)}</span>
+                      ${renderStoryConfidence(assessNews(n))}
                       <a href="${sanitizeUrl(n.link)}" target="_blank" class="news-title">${escapeHtml(n.title)}</a>
                       ${corroborationLabelHtml(assessCorroboration(evidenceFromItem(n)))}
                     </div>
@@ -1499,6 +1506,7 @@ export class MapPopup {
       <a href="${sanitizeUrl(article.url)}" target="_blank" rel="noopener" class="hotspot-gdelt-article">
         <div class="article-meta">
           <span>${escapeHtml(domain)}</span>
+          ${renderStoryConfidence({ tier: 'Unconfirmed', reason: 'An indexed article does not carry matched official or two-publisher evidence.', sources: [] })}
           <span>${escapeHtml(timeAgo)}</span>
         </div>
         <div class="article-title">${escapeHtml(article.title)}</div>

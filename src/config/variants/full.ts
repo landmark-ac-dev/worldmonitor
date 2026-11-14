@@ -18,6 +18,7 @@ export * from '../entities';
 
 // Panel configuration for geopolitical analysis
 export const DEFAULT_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   map: { name: 'Global Map', enabled: true, priority: 1 },
   'live-news': { name: 'Live News', enabled: true, priority: 1 },
   intel: { name: 'Intel Feed', enabled: true, priority: 1 },

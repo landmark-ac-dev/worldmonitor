@@ -21,7 +21,7 @@ vi.mock('@/services/analysis-worker', () => ({
 }));
 vi.mock('@/services/breaking-news-alerts', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/services/breaking-news-alerts')>(),
-  checkBatchForBreakingAlerts: vi.fn(),
+  checkFamilyPatternForBreakingAlerts: vi.fn(),
 }));
 vi.mock('@/services/trending-keywords', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/services/trending-keywords')>(),

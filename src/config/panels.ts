@@ -22,6 +22,7 @@ const IRAN_ATTACKS_ENABLED = typeof window !== 'undefined' && import.meta.env.VI
 // Panel order matters! First panels appear at top of grid.
 // Desired order: live-news, AI Insights, AI Strategic Posture, cii, strategic-risk, then rest
 const FULL_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   map: { name: 'Global Map', enabled: true, priority: 1 },
   'live-news': { name: 'Live News', enabled: true, priority: 1 },
   'live-webcams': { name: 'Live Webcams', enabled: true, priority: 1 },
@@ -284,6 +285,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
 // TECH VARIANT (Tech/AI/Startups)
 // ============================================
 const TECH_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   map: { name: 'Global Tech Map', enabled: true, priority: 1 },
   'live-news': { name: 'Tech Headlines', enabled: true, priority: 1 },
   'live-webcams': { name: 'Live Webcams', enabled: true, priority: 2 },
@@ -459,6 +461,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
 // FINANCE VARIANT (Markets/Trading)
 // ============================================
 const FINANCE_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   map: { name: 'Global Markets Map', enabled: true, priority: 1 },
   'live-news': { name: 'Market Headlines', enabled: true, priority: 1 },
   'live-webcams': { name: 'Live Webcams', enabled: true, priority: 2 },
@@ -670,6 +673,7 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
 // HAPPY VARIANT (Good News & Progress)
 // ============================================
 const HAPPY_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: false, priority: 2 },
   map: { name: 'Good News Map', enabled: true, priority: 1 },
   'positive-feed': { name: 'Good News Feed', enabled: true, priority: 1 },
   progress: { name: 'Human Progress', enabled: true, priority: 1 },
@@ -814,6 +818,7 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
 // COMMODITY VARIANT (Mining, Metals, Energy)
 // ============================================
 const COMMODITY_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   map: { name: 'Commodity Map', enabled: true, priority: 1 },
   'live-news': { name: 'Commodity Headlines', enabled: true, priority: 1 },
   insights: { name: 'AI Commodity Insights', enabled: true, priority: 1 },
@@ -990,6 +995,7 @@ const COMMODITY_MOBILE_MAP_LAYERS: MapLayers = {
 // See docs/internal/global-energy-flow-parity-and-surpass.md (not committed).
 // ============================================
 const ENERGY_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   map: { name: 'Energy Atlas Map', enabled: true, priority: 1 },
   'energy-risk-overview': { name: 'Global Energy Risk Overview', enabled: true, priority: 1 },
   'chokepoint-strip': { name: 'Chokepoint Status', enabled: true, priority: 1 },
@@ -1513,7 +1519,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // All variants — essential panels
   core: {
     labelKey: 'header.panelCatCore',
-    panelKeys: ['map', 'live-news', 'live-webcams', 'windy-webcams', 'insights', 'strategic-posture', 'latest-brief'],
+    panelKeys: ['map', 'family-facts', 'live-news', 'live-webcams', 'windy-webcams', 'insights', 'strategic-posture', 'latest-brief'],
   },
 
   // Full (geopolitical) variant — marketsFinance/topical/dataTracking are

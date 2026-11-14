@@ -29,7 +29,9 @@ import { TimeoutError, withTimeout } from '@/utils/with-timeout';
 import { extractEntitiesFromTitle } from '@/services/entity-extraction';
 import { getEntityIndex } from '@/services/entity-index';
 
-import type { ClusteredEvent, FocalPoint, MilitaryFlight } from '@/types';
+import type { ClusteredEvent, FocalPoint, MilitaryFlight, NewsItem } from '@/types';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 
 const getAuthoritativeCountryScore = getCachedCountryScoreValue;
 
@@ -634,7 +636,7 @@ export class InsightsPanel extends Panel {
       ${sentimentOverview}
       ${statsHtml}
       <div class="insights-section">
-        <div class="insights-section-title">${t('components.insights.breakingConfirmed')}</div>
+        <div class="insights-section-title">Latest reports</div>
         ${breakingHtml}
       </div>
       ${missedHtml}
@@ -679,7 +681,7 @@ export class InsightsPanel extends Panel {
       ${statsHtml}
       ${provenanceHtml}
       <div class="insights-section">
-        <div class="insights-section-title">${t('components.insights.breakingConfirmed')}</div>
+        <div class="insights-section-title">Latest reports</div>
         ${storiesHtml}
       </div>
       ${missedHtml}
@@ -690,12 +692,17 @@ export class InsightsPanel extends Panel {
     stories: ServerInsightStory[],
     sentiments: Array<{ label: string; score: number }> | null,
   ): string {
+    const corpus: NewsItem[] = stories.map((story) => ({
+      title: story.primaryTitle, source: story.primarySource, link: story.primaryLink,
+      pubDate: new Date(story.pubDate), pubDateMissing: !story.pubDate, isAlert: false,
+    }));
+    const assess = createStoryAssessor(corpus);
     return stories.map((story, i) => {
       const sentiment = sentiments?.[i];
       const sentimentClass = sentiment?.label === 'negative' ? 'negative' :
         sentiment?.label === 'positive' ? 'positive' : 'neutral';
 
-      const badges: string[] = [];
+      const badges: string[] = [renderStoryConfidence(assess(corpus[i]!))];
 
       // #6428: the "✓ N sources" badge is a corroboration claim, so it counts
       // PUBLISHERS. story.sourceCount is the article count — nine reprints of
@@ -706,17 +713,13 @@ export class InsightsPanel extends Panel {
       const storyCorroboration = assessCorroboration(storyEvidence);
       const storyPublishers = badgePublisherCount(storyCorroboration, story.uniqueSourceCount ?? 0);
       if (storyPublishers >= 3) {
-        badges.push(`<span class="insight-badge confirmed">✓ ${t('components.insights.sources', { count: storyPublishers })}</span>`);
+        badges.push(`<span class="insight-badge multi">${t('components.insights.sources', { count: storyPublishers })}</span>`);
       } else if (storyPublishers >= 2) {
         badges.push(`<span class="insight-badge multi">${t('components.insights.sources', { count: storyPublishers })}</span>`);
       }
       const storyFlag = corroborationFlagHtml(storyCorroboration);
       if (storyFlag) badges.push(storyFlag);
       const rosterView = describePublisherRoster(storyCorroboration, publisherRoster(storyEvidence));
-
-      if (story.isAlert) {
-        badges.push(`<span class="insight-badge alert">⚠ ${t('components.insights.alert')}</span>`);
-      }
 
       if (Number.isFinite(story.credibilityScore)) {
         const cred = Math.round(story.credibilityScore as number);
@@ -828,6 +831,8 @@ export class InsightsPanel extends Panel {
     items: Array<{ cluster: ClusteredEvent; isq: SignalQuality }>,
     sentiments: Array<{ label: string; score: number }> | null
   ): string {
+    const corpus = items.flatMap(({ cluster }) => cluster.allItems);
+    const assess = createStoryAssessor(corpus);
     const ISQ_BADGE_CLASS: Record<string, string> = {
       strong: 'isq-strong', notable: 'isq-notable', weak: 'isq-weak', noise: 'isq-noise',
     };
@@ -837,7 +842,10 @@ export class InsightsPanel extends Panel {
       const sentimentClass = sentiment?.label === 'negative' ? 'negative' :
         sentiment?.label === 'positive' ? 'positive' : 'neutral';
 
-      const badges: string[] = [];
+      const primary = cluster.allItems.find(item => item.title === cluster.primaryTitle && item.link === cluster.primaryLink);
+      const badges: string[] = [renderStoryConfidence(primary ? assess(primary) : {
+        tier: 'Unconfirmed', reason: 'This cluster headline has no matching original article evidence.', sources: [],
+      })];
 
       if (isq.tier === 'strong' || isq.tier === 'notable') {
         const cls = ISQ_BADGE_CLASS[isq.tier];
@@ -849,7 +857,7 @@ export class InsightsPanel extends Panel {
       const clusterCorroboration = assessCorroboration(clusterEvidence);
       const clusterPublishers = badgePublisherCount(clusterCorroboration, cluster.uniquePublisherCount ?? 0);
       if (clusterPublishers >= 3) {
-        badges.push(`<span class="insight-badge confirmed">✓ ${t('components.insights.sources', { count: clusterPublishers })}</span>`);
+        badges.push(`<span class="insight-badge multi">${t('components.insights.sources', { count: clusterPublishers })}</span>`);
       } else if (clusterPublishers >= 2) {
         badges.push(`<span class="insight-badge multi">${t('components.insights.sources', { count: clusterPublishers })}</span>`);
       }
@@ -860,10 +868,6 @@ export class InsightsPanel extends Panel {
       if (cluster.velocity && cluster.velocity.level !== 'normal') {
         const velIcon = cluster.velocity.trend === 'rising' ? '↑' : '';
         badges.push(`<span class="insight-badge velocity ${cluster.velocity.level}">${velIcon}+${cluster.velocity.sourcesPerHour}/hr</span>`);
-      }
-
-      if (cluster.isAlert) {
-        badges.push(`<span class="insight-badge alert">⚠ ${t('components.insights.alert')}</span>`);
       }
 
       return `
@@ -972,6 +976,7 @@ export class InsightsPanel extends Panel {
             <span class="insight-story-title">${escapeHtml(story.title.slice(0, 80))}${story.title.length > 80 ? '...' : ''}</span>
           </div>
           <div class="insight-badges">
+            ${renderStoryConfidence({ tier: 'Unconfirmed', reason: 'Model detection does not establish official or two-publisher confirmation.', sources: [] })}
             <span class="insight-badge ml-detected">🔬 ${perspectiveName}: ${(perspectiveScore * 100).toFixed(0)}%</span>
           </div>
         </div>

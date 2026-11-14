@@ -241,8 +241,9 @@ describe('#5359 — browser-submitted origins stay deliverable to scoped users (
   // Fail-closed default means a NEW browser origin added without country
   // attribution silently disappears for country-scoped users. This contract
   // makes that a red test instead: every origin in the BreakingAlert union
-  // must either be in the relay's permissive allowlist or have countryCode
-  // attached at its dispatch site.
+  // that can reach the relay must either be in its permissive allowlist or
+  // have countryCode attached at its dispatch site. A local-only origin
+  // requires an explicit exclusion at the external-send gate instead.
   const alertsSrc = readFileSync(
     resolve(__dirname, '..', 'src', 'services', 'breaking-news-alerts.ts'),
     'utf-8',
@@ -252,7 +253,7 @@ describe('#5359 — browser-submitted origins stay deliverable to scoped users (
     'utf-8',
   );
 
-  it('every BreakingAlert origin is allowlisted or attributed', () => {
+  it('every externally submitted BreakingAlert origin is allowlisted or attributed', () => {
     const unionMatch = alertsSrc.match(/origin:\s*((?:'[a-z_]+'\s*\|\s*)+'[a-z_]+');/);
     assert.ok(unionMatch, 'BreakingAlert origin union not found in breaking-news-alerts.ts');
     const origins = [...unionMatch[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
@@ -263,6 +264,15 @@ describe('#5359 — browser-submitted origins stay deliverable to scoped users (
     const allowlist = new Set([...allowlistMatch[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
 
     for (const origin of origins) {
+      if (origin === 'family_pattern') {
+        assert.match(
+          alertsSrc,
+          /if\s*\(alert\.origin\s*!==\s*'family_pattern'\s*&&\s*!RELAY_GATES_READY\)\s*\{[\s\S]*?getClerkToken\(\)/,
+          'family_pattern is browser-only: its explicit exclusion must guard the authenticated relay-send path',
+        );
+        assert.ok(!allowlist.has(origin), 'browser-only family_pattern must not enter the external relay permissive allowlist');
+        continue;
+      }
       if (allowlist.has(origin)) continue;
       // Not allowlisted → its dispatch object literal must carry countryCode
       // (e.g. oref_siren sets IL). Scan the object literal around the origin.

@@ -71,6 +71,7 @@ import { isReportableCanadaRoad } from '@/services/canada-road-report';
 import type { CanadaAlert } from '@/services/canada-alerts';
 import { escapeHtml } from '@/utils/sanitize';
 import { corroborationLabelHtml } from '@/utils/corroboration-flag';
+import { renderStoryConfidence } from './news/confidence-label';
 import {
   derivePipelinePublicBadge,
   type PipelineEvidenceInput,
@@ -5626,7 +5627,8 @@ export class DeckGLMap {
         return { html: `<div class="deckgl-tooltip"><strong>${t('components.deckgl.layers.iranAttacks')}: ${text(obj.category || '')}</strong><br/>${text((obj.title || '').slice(0, 80))}</div>` };
       case 'news-locations-layer': {
         const coverage = corroborationLabelHtml(obj.corroboration);
-        return { html: `<div class="deckgl-tooltip"><strong>📰 ${t('components.deckgl.tooltip.news')}</strong><br/>${text(obj.title?.slice(0, 80) || '')}${coverage ? `<br/>${coverage}` : ''}</div>` };
+        const confidence = renderStoryConfidence({ tier: 'Unconfirmed', reason: 'This map marker lacks the original publisher evidence needed to assess its headline.', sources: [] });
+        return { html: `<div class="deckgl-tooltip"><strong>📰 ${t('components.deckgl.tooltip.news')}</strong><br/>${text(obj.title?.slice(0, 80) || '')}<br/>${confidence}${coverage ? `<br/>${coverage}` : ''}</div>` };
       }
       case 'positive-events-layer': {
         const catLabel = obj.category ? obj.category.replace(/-/g, ' & ') : 'Positive Event';

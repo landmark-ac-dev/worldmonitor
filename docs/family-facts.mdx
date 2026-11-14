@@ -1,0 +1,76 @@
+---
+title: "What's actually true"
+description: "A calm, source-linked brief and a local check for repeated social posts."
+---
+
+The **What's actually true** dashboard panel shows up to five current reports
+that meet the family confidence policy. It aims for three to five lines, but
+shows fewer when there is less evidence. It never fills gaps with invented claims.
+Open it from Settings → Panels or search for “family” in the command palette.
+
+## Confidence labels
+
+Each news-feed story carries one of three labels:
+
+- **Confirmed:** a matching publication from an explicitly recognized official
+  source, linked directly to its official domain.
+- **Credible:** matching reports from at least two distinct publisher families
+  among AP, Reuters, The Washington Post, The New York Times and BBC.
+- **Unconfirmed:** the loaded reports do not meet either rule. This does not mean
+  the claim is false. A single respected outlet alone does not meet this policy.
+
+The evaluator checks both the feed identity and destination URL. An aggregator
+link, an official-looking display name, a generic credibility score, or a mention
+of an agency in the headline cannot establish confirmation. Multiple editions of
+one publisher count once. Headline matching is deliberately conservative;
+differently worded coverage may remain Unconfirmed. The explicit source policy
+lives in `src/config/family-facts.ts`.
+
+“Confirmed” identifies an official publication; it is not an independent audit
+of every claim or implication. Read the linked source before sharing. The brief
+uses source headlines rather than an LLM-generated paraphrase.
+
+## Pattern alerts
+
+The family alert requires separate qualifying disruption reports in at least two
+of aviation, banking/finance, telecom, cyber and power within the past six hours.
+A single story cannot supply both domains. A single headline never triggers a
+news banner. Emergency sirens remain a separate, unchanged safety signal.
+
+The current classifier uses conservative English headline patterns. Unknown,
+future or synthesized publication times are excluded. A fresh publication date
+does not by itself establish a current disruption. Denials, hypothetical,
+restored, historical and ambiguous reports are excluded. These rules can miss
+real disruptions; they are not a complete operational monitoring service.
+
+The brief's six-hour window expires every minute, including during failed feed
+refreshes. Notification evaluation uses the complete committed news snapshot;
+stale refreshes cannot send new pattern notifications. Browser pattern alerts
+are silent and do not send email, Telegram or other external notifications.
+
+Co-occurring reports do not establish a common cause. No alert is not an
+all-clear: the result depends on selected feeds and available evidence.
+
+## Check copied social posts
+
+Expand **Check copied social posts** and paste a JSON array. The format example
+is fictional. Analysis runs on this device, with no collection, upload or saved
+post history. The dashboard's existing feeds do not supply account ages and
+follower counts, so this is an explicit local import rather than live social
+monitoring.
+
+A flag requires at least five distinct accounts in one thirty-minute window.
+Each account must be at most thirty days old when posting, or have fewer than
+one hundred followers. The text must contain at least twelve words and share at
+least ninety percent of its word triplets with every other member of the group.
+Repeated posts from one account count once. Unknown profile fields stay
+unassessed; supplied profile data is not independently verified.
+
+Use `platform`, stable `accountId`, `text`, `postedAt`, optional
+`accountCreatedAt`, optional `followers`, and optional `url`. Timestamps must
+include a time zone or use epoch milliseconds. Omit unknown account fields or
+set them to `null`. Input is limited to five hundred posts.
+
+A flag establishes repeated wording, not falsehood, intent or coordination.
+Legitimate announcements can be copied too. Check the underlying claim against
+the linked official publications and reporting before sharing it.

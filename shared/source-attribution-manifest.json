@@ -4304,6 +4304,9 @@
           "path": "scripts/openapi-inject-examples.mjs"
         },
         {
+          "path": "src/components/news/CopyPasteCheck.ts"
+        },
+        {
           "path": "src/services/mcp-store.ts"
         },
         {

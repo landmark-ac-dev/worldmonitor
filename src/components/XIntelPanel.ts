@@ -2,6 +2,7 @@ import { Panel } from './Panel';
 import { sanitizeUrl } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { h } from '@/utils/dom-utils';
+import { createStoryConfidenceBadge, UNCONFIRMED_SOCIAL_ASSESSMENT } from './news/confidence-label';
 import {
   X_TOPICS,
   formatXTime,
@@ -114,6 +115,7 @@ export class XIntelPanel extends Panel {
       h('div', { className: 'x-intel-item-header' },
         h('div', { className: 'x-intel-account-wrapper' },
           h('span', { className: 'x-intel-account' }, item.accountTitle || item.account),
+          createStoryConfidenceBadge(UNCONFIRMED_SOCIAL_ASSESSMENT),
           isLive ? h('span', { className: 'live-indicator' }, t('components.xIntel.live')) : null,
         ),
         h('div', { className: 'x-intel-meta' },

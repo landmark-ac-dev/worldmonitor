@@ -1,5 +1,6 @@
 import type { BreakingAlert } from '@/services/breaking-news-alerts';
 import { getAlertSettings } from '@/services/breaking-news-alerts';
+import { familyDisruptionDomain } from '@/services/family-facts';
 import { getSourcePanelId } from '@/config/feeds';
 import { t } from '@/services/i18n';
 import { isMobileDevice } from '@/utils';
@@ -80,7 +81,7 @@ export class BreakingNewsBanner {
 
       // Let the headline anchor keep its native navigation behavior instead of
       // also triggering the row's panel-scroll action.
-      if (target.closest('.breaking-alert-headline-link')) return;
+      if (target.closest('.breaking-alert-headline-link, .family-pattern-source-link')) return;
 
       const panelId = alertEl.getAttribute('data-target-panel');
       if (panelId) this.scrollToPanel(panelId);
@@ -179,6 +180,8 @@ export class BreakingNewsBanner {
     }
 
     const el = this.createAlertElement(alert);
+    this.container.setAttribute('aria-live', alert.origin === 'family_pattern'
+      && this.activeAlerts.every((active) => active.alert.origin === 'family_pattern') ? 'polite' : 'assertive');
     this.container.appendChild(el);
 
     const dismissMs = alert.threatLevel === 'critical' ? CRITICAL_DISMISS_MS : HIGH_DISMISS_MS;
@@ -196,11 +199,12 @@ export class BreakingNewsBanner {
     }
 
     this.activeAlerts.push(active);
-    this.playSound();
+    if (alert.origin !== 'family_pattern') this.playSound();
     this.updateOffset();
   }
 
   private resolveTargetPanel(alert: BreakingAlert): string {
+    if (alert.origin === 'family_pattern') return 'family-facts';
     if (alert.origin === 'oref_siren') return 'oref-sirens';
     if (alert.origin === 'rss_alert') return getSourcePanelId(alert.source);
     return 'politics';
@@ -225,6 +229,7 @@ export class BreakingNewsBanner {
   }
 
   private createAlertElement(alert: BreakingAlert): HTMLElement {
+    if (alert.origin === 'family_pattern') return this.createFamilyPatternElement(alert);
     const el = document.createElement('div');
     el.className = `breaking-alert severity-${alert.threatLevel}`;
     el.setAttribute('data-alert-id', alert.id);
@@ -319,6 +324,70 @@ export class BreakingNewsBanner {
     el.appendChild(viewPanelBtn);
     el.appendChild(dismissBtn);
 
+    return el;
+  }
+
+  private createFamilyPatternElement(alert: BreakingAlert): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'breaking-alert family-pattern-alert';
+    el.setAttribute('data-alert-id', alert.id);
+    el.setAttribute('data-target-panel', 'family-facts');
+    el.style.setProperty('--breaking-alert-accent', 'var(--text-secondary)');
+    const content = document.createElement('div');
+    content.className = 'breaking-alert-content';
+    const label = document.createElement('span');
+    label.className = 'breaking-alert-level';
+    label.textContent = 'Pattern alert';
+    const headline = document.createElement('span');
+    headline.className = 'breaking-alert-headline';
+    headline.style.whiteSpace = 'normal';
+    headline.textContent = alert.headline;
+    content.append(label, headline);
+    const evidence = document.createElement('ul');
+    evidence.className = 'family-pattern-evidence';
+    evidence.style.gridColumn = '1 / -1';
+    evidence.style.margin = '0';
+    evidence.style.paddingInlineStart = '18px';
+    evidence.style.overflowWrap = 'anywhere';
+    const shownDomains = new Set<string>();
+    // One item for every represented domain (at most five), with both source
+    // links retained when Credible requires two publishers.
+    for (const item of alert.familyPattern?.items ?? []) {
+      const domain = familyDisruptionDomain(item.title);
+      if (!domain || shownDomains.has(domain)) continue;
+      shownDomains.add(domain);
+      const row = document.createElement('li');
+      row.append(document.createTextNode(`${item.title} (${item.assessment.tier}) `));
+      for (const source of item.assessment.sources.slice(0, 2)) {
+        let url: URL;
+        try { url = new URL(source.url); } catch { continue; }
+        if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
+        const link = document.createElement('a');
+        link.className = 'family-pattern-source-link';
+        link.href = url.href;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = source.name;
+        row.append(link, document.createTextNode(' '));
+      }
+      evidence.append(row);
+    }
+    content.append(evidence);
+    const note = document.createElement('span');
+    note.className = 'breaking-alert-meta';
+    note.textContent = 'These reports do not establish a shared cause. Open the brief for context and sources.';
+    content.append(note);
+    const view = document.createElement('button');
+    view.className = 'breaking-alert-view-panel';
+    view.type = 'button';
+    view.textContent = 'View brief';
+    view.setAttribute('aria-label', "View What's actually true");
+    const dismiss = document.createElement('button');
+    dismiss.className = 'breaking-alert-dismiss';
+    dismiss.type = 'button';
+    dismiss.textContent = '×';
+    dismiss.setAttribute('aria-label', 'Dismiss pattern alert');
+    el.append(content, view, dismiss);
     return el;
   }
 

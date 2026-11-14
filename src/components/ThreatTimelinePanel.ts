@@ -2,7 +2,10 @@ import * as d3 from 'd3';
 import { Panel } from './Panel';
 import { fetchServerInsights, getServerInsights, type ServerInsights } from '@/services/insights-loader';
 import { escapeHtml, sanitizeUrl, unsafeRawHtml } from '@/utils/sanitize';
-import type { ClusteredEvent } from '@/types';
+import type { ClusteredEvent, NewsItem } from '@/types';
+import type { StoryAssessment } from '@/types/family-facts';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 import {
   THREAT_LEVELS,
   THREAT_LEVEL_COLORS,
@@ -33,6 +36,12 @@ interface StackRow {
 
 export class ThreatTimelinePanel extends Panel {
   private lastClusters: ClusteredEvent[] = [];
+  private confidenceByStory = new Map<string, StoryAssessment>();
+
+  private setConfidenceCorpus(corpus: NewsItem[]): void {
+    const assess = createStoryAssessor(corpus);
+    this.confidenceByStory = new Map(corpus.map(item => [JSON.stringify([item.title, item.link]), assess(item)]));
+  }
 
   constructor() {
     super({
@@ -65,6 +74,10 @@ export class ThreatTimelinePanel extends Panel {
   }
 
   public updateFromServerInsights(insights: ServerInsights): void {
+    this.setConfidenceCorpus(insights.topStories.map(story => ({
+      title: story.primaryTitle, source: story.primarySource, link: story.primaryLink,
+      pubDate: new Date(story.pubDate), pubDateMissing: !story.pubDate, isAlert: false,
+    })));
     const items = normalizeServerInsightStories(insights);
     const state = buildThreatTimelineState(items, {
       status: insights.status,
@@ -79,6 +92,7 @@ export class ThreatTimelinePanel extends Panel {
     statusMessage = '',
   ): void {
     this.lastClusters = clusters;
+    this.setConfidenceCorpus(clusters.flatMap(cluster => cluster.allItems));
     const items = normalizeClusterStories(clusters);
     const state = buildThreatTimelineState(items, { status, statusMessage });
     this.renderState(state, status === 'ok' ? 'Live clusters' : 'Cluster fallback');
@@ -128,7 +142,7 @@ export class ThreatTimelinePanel extends Panel {
             ${THREAT_LEVEL_LABELS[level]} <strong>${state.totals[level]}</strong>
           </span>
         `).join('')}</div>
-        <div class="threat-timeline-groups" aria-label="Current threat alerts grouped by level">
+        <div class="threat-timeline-groups" aria-label="Reports grouped by threat classification">
           ${groups}
         </div>
         <div class="threat-timeline-footer">${total} insight item${total === 1 ? '' : 's'} from ${escapeHtml(sourceLabel)}</div>
@@ -252,6 +266,9 @@ export class ThreatTimelinePanel extends Panel {
         ${titleHtml}
         <div class="threat-timeline-item-meta">
           <span class="threat-timeline-source">${source}</span>
+          ${renderStoryConfidence(this.confidenceByStory.get(JSON.stringify([item.title, item.sourceUrl])) ?? {
+            tier: 'Unconfirmed', reason: 'This timeline entry has no matching original publisher evidence.', sources: [],
+          })}
           ${sourceCount}
           <span>${escapeHtml(age)}</span>
         </div>

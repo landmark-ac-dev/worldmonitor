@@ -16,6 +16,7 @@ export * from './base';
 // StorageFacilityMapPanel, FuelShortagePanel) land on this variant in Week 2–3.
 // ─────────────────────────────────────────────────────────────────────────────
 export const DEFAULT_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   // Core
   map: { name: 'Energy & Infrastructure Map', enabled: true, priority: 1 },
   'live-news': { name: 'Energy Headlines', enabled: true, priority: 1 },

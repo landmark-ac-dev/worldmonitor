@@ -3,6 +3,8 @@ import type { NewsItem } from '@/types';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 
 
 /**
@@ -46,6 +48,7 @@ export class BreakthroughsTickerPanel extends Panel {
    */
   public setItems(items: NewsItem[]): void {
     if (!this.tickerTrack) return;
+    const assess = createStoryAssessor(items);
 
     if (items.length === 0) {
       setTrustedHtml(this.tickerTrack, trustedHtml(`<span class="ticker-item ticker-placeholder">${t('components.breakthroughsTicker.noData')}</span>`, "legacy direct innerHTML migration"));
@@ -58,6 +61,7 @@ export class BreakthroughsTickerPanel extends Panel {
         (item) =>
           `<a class="ticker-item" href="${sanitizeUrl(item.link)}" target="_blank" rel="noopener">` +
           `<span class="ticker-item-source">${escapeHtml(item.source)}</span>` +
+          renderStoryConfidence(assess(item)) +
           `<span class="ticker-item-title">${escapeHtml(item.title)}</span>` +
           `</a>`,
       )

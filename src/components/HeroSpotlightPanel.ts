@@ -2,6 +2,8 @@ import { Panel } from './Panel';
 import type { NewsItem } from '@/types';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
+import { assessStory } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 
 
 /**
@@ -58,6 +60,7 @@ export class HeroSpotlightPanel extends Panel {
   ${imageHtml}
   <div class="hero-card-body">
     <span class="hero-card-source">${escapeHtml(item.source)}</span>
+    ${renderStoryConfidence(assessStory(item, [item]))}
     <h3 class="hero-card-title">
       <a href="${sanitizeUrl(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>
     </h3>

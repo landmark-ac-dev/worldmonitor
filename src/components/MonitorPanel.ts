@@ -5,6 +5,8 @@ import { MONITOR_COLORS } from '@/config';
 import { generateId, formatTime, getCSSColor } from '@/utils';
 import { validateUrl } from '@/utils/sanitize';
 import { h, replaceChildren } from '@/utils/dom-utils';
+import { createStoryAssessor } from '@/services/family-facts';
+import { createStoryConfidenceBadge } from './news/confidence-label';
 
 // These scripts do not separate words with spaces (Korean attaches particles
 // to nouns), so keyword endpoints in them do not require word boundaries.
@@ -98,6 +100,7 @@ export class MonitorPanel extends Panel {
   }
 
   public renderResults(news: NewsItem[]): void {
+    const assess = createStoryAssessor(news);
     const results = this.monitorsResults;
 
     if (this.monitors.length === 0) {
@@ -153,7 +156,7 @@ export class MonitorPanel extends Panel {
           className: 'item',
           style: `border-left: 2px solid ${item.monitorColor || ''}; padding-left: 8px; margin-left: -8px;`,
         },
-          h('div', { className: 'item-source' }, item.source),
+          h('div', { className: 'item-source' }, item.source, createStoryConfidenceBadge(assess(item))),
           h('a', {
             className: 'item-title',
             href: validateUrl(item.link),

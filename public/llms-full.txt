@@ -2968,7 +2968,7 @@ callout with the last update time.
 <a id="corpus-published-country-resilience-ranking"></a>
 ## Published country resilience ranking
 
-Snapshot `docs/snapshots/resilience-ranking-2026-11-01.json` captured 2026-11-01. This 2026-11-01 snapshot applies domain design weights inside pillar aggregation. Earlier published CRI numbers used coverage-only member aggregation and are not directly comparable.
+Snapshot `docs\snapshots\resilience-ranking-2026-11-01.json` captured 2026-11-01. This 2026-11-01 snapshot applies domain design weights inside pillar aggregation. Earlier published CRI numbers used coverage-only member aggregation and are not directly comparable.
 
 | Rank | Country | Code | Score | Coverage |
 | ---: | --- | --- | ---: | ---: |

@@ -132,7 +132,7 @@ const PANEL_CLUSTER: Record<string, PanelChunkName> = {
   UcdpEvents: 'panels-defense', UkmtoIncidents: 'panels-defense',
   // News / feeds / briefs
   BreakthroughsTicker: 'panels-news', ClimateNews: 'panels-news',
-  DailyMarketBrief: 'panels-news', GdeltIntel: 'panels-news',
+  DailyMarketBrief: 'panels-news', FamilyFacts: 'panels-news', GdeltIntel: 'panels-news',
   GoodThingsDigest: 'panels-news', LatestBrief: 'panels-news',
   LiveNews: 'panels-news', News: 'panels-news',
   PositiveNewsFeed: 'panels-news', TelegramIntel: 'panels-news', XIntel: 'panels-news',

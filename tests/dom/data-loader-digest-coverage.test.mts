@@ -5,7 +5,7 @@ import type { ListFeedDigestResponse } from '@/generated/client/worldmonitor/new
 import type { ClusteredEvent } from '@/types';
 
 const mocks = vi.hoisted(() => ({
-  checkBatchForBreakingAlerts: vi.fn(),
+  checkFamilyPatternForBreakingAlerts: vi.fn(),
   clusterNews: vi.fn(),
   analyzeCorrelations: vi.fn(),
   enqueueSentryCall: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('@/services/analytics', async (importOriginal) => ({
 
 vi.mock('@/services/breaking-news-alerts', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/services/breaking-news-alerts')>(),
-  checkBatchForBreakingAlerts: mocks.checkBatchForBreakingAlerts,
+  checkFamilyPatternForBreakingAlerts: mocks.checkFamilyPatternForBreakingAlerts,
 }));
 
 vi.mock('@/services/analysis-worker', () => ({
@@ -150,7 +150,7 @@ async function makeLoader() {
 
 describe('digest coverage follows the selected browser response', () => {
   beforeEach(() => {
-    mocks.checkBatchForBreakingAlerts.mockReset();
+    mocks.checkFamilyPatternForBreakingAlerts.mockReset();
     mocks.clusterNews.mockReset();
     mocks.analyzeCorrelations.mockReset();
     mocks.enqueueSentryCall.mockReset();
@@ -1129,7 +1129,7 @@ describe('digest coverage follows the selected browser response', () => {
       );
 
       expect(selected?.servedStale).toBe(true);
-      expect(mocks.checkBatchForBreakingAlerts).not.toHaveBeenCalled();
+      expect(mocks.checkFamilyPatternForBreakingAlerts).not.toHaveBeenCalled();
     },
   );
 

@@ -6,6 +6,9 @@ import { createLazyClient, getRpcBaseUrl, rpcFetch } from '@/services/rpc-client
 
 import type { ListClimateNewsResponse, ClimateNewsItem } from '@/generated/client/worldmonitor/climate/v1/service_client';
 import { ClimateServiceClient } from '@/services/generated-rpc-clients';
+import { createStoryAssessor } from '@/services/family-facts';
+import type { NewsItem } from '@/types';
+import type { StoryAssessment } from '@/types/family-facts';
 
 const getClimateClient = createLazyClient(() => new ClimateServiceClient(getRpcBaseUrl(), { fetch: rpcFetch }));
 
@@ -26,13 +29,14 @@ function truncateSummary(text: string, maxLen = 120): string {
   return text.slice(0, maxLen).replace(/\s+\S*$/, '') + '...';
 }
 
-function renderNewsCard(item: ClimateNewsItem): SafeHtml {
+function renderNewsCard(item: ClimateNewsItem, assessment: StoryAssessment): SafeHtml {
   const timeAgo = item.publishedAt ? formatTimeAgo(item.publishedAt) : '';
   const summary = truncateSummary(item.summary);
   const safeUrl = safeUrlAttr(item.url);
 
   const inner = safeHtml`<div class="climate-news-card__header">
       <span class="climate-news-card__source">${item.sourceName}</span>
+      <span class="story-confidence confidence-${assessment.tier.toLowerCase()}" title="${assessment.reason}">${assessment.tier}</span>
       <span class="climate-news-card__time">${timeAgo}</span>
     </div>
     <div class="climate-news-card__title">${item.title}</div>
@@ -75,7 +79,12 @@ export class ClimateNewsPanel extends Panel {
       return;
     }
 
-    const cards = joinSafeHtml(data.items.map(renderNewsCard));
+    const corpus: NewsItem[] = data.items.map((item) => ({
+      title: item.title, source: item.sourceName, link: item.url,
+      pubDate: new Date(item.publishedAt), pubDateMissing: !item.publishedAt, isAlert: false,
+    }));
+    const assess = createStoryAssessor(corpus);
+    const cards = joinSafeHtml(data.items.map((item, index) => renderNewsCard(item, assess(corpus[index]!))));
     this.setSafeContent(safeHtml`<div class="climate-news-list">${cards}</div>`);
   }
 }

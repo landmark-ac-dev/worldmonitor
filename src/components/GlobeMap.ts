@@ -48,6 +48,7 @@ import { getCountryBbox, getCountriesGeoJson, getCountryAtCoordinates, getCountr
 import { escapeHtml } from '@/utils/sanitize';
 import type { FocusFitBounds } from '@/utils/focus-map';
 import { corroborationLabelHtml } from '@/utils/corroboration-flag';
+import { renderStoryConfidence } from './news/confidence-label';
 import { showLayerWarning } from '@/utils/layer-warning';
 import { isMobileDevice } from '@/utils';
 import { setGlobeMarkerLoad } from '@/bootstrap/globe-marker-probe';
@@ -1826,8 +1827,10 @@ export class GlobeMap {
     } else if (d._kind === 'newsLocation') {
       const tc = d.threatLevel === 'critical' ? '#ff2020' : d.threatLevel === 'high' ? '#ff6600' : (d.threatLevel === 'elevated' || d.threatLevel === 'medium') ? '#ffaa00' : '#44aaff';
       const coverage = corroborationLabelHtml(d.corroboration);
+      const confidence = renderStoryConfidence({ tier: 'Unconfirmed', reason: 'This map marker lacks the original publisher evidence needed to assess its headline.', sources: [] });
       html = `<span style="color:${tc};font-weight:bold;">📰 ${esc(d.title.slice(0, 60))}</span>` +
              `<br><span style="opacity:.5;">${esc(d.threatLevel)}</span>` +
+             `<br>${confidence}` +
              (coverage ? `<br>${coverage}` : '');
     } else if (d._kind === 'satellite') {
       const sc = SAT_COUNTRY_COLORS[d.country] || '#ccccff';

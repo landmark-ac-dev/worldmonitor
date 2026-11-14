@@ -84,7 +84,8 @@ test('news source rows keep every badge inside the panel', async ({ browser }, t
       }, { message: `politics clustered rows at ${viewport.width}px`, timeout: 90_000 })
       .toBe(ITEMS.length);
     await expect(panel.locator('.item.clustered .category-tag')).toHaveCount(2);
-    await expect(panel.locator('.item.clustered .alert-tag')).toHaveCount(2);
+    await expect(panel.locator('.item.clustered .alert-tag')).toHaveCount(0);
+    await expect(panel.locator('.item.clustered .story-confidence')).toHaveCount(ITEMS.length);
     await panel.screenshot({ path: testInfo.outputPath(`politics-${viewport.width}.png`) });
     const m = await measure(page);
     const label = `politics at ${viewport.width}px (panel ${m.panel}px, ${m.badges} badges)`;

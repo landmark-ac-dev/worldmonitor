@@ -7,6 +7,8 @@ import { formatTime } from '@/utils';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { trustedHtml } from '@/utils/dom-utils';
+import { createStoryAssessor } from '@/services/family-facts';
+import { renderStoryConfidence } from './news/confidence-label';
 
 
 /**
@@ -17,6 +19,7 @@ export class PositiveNewsFeedPanel extends Panel {
   private activeFilter: HappyContentCategory | 'all' = 'all';
   private allItems: NewsItem[] = [];
   private filteredItems: NewsItem[] = [];
+  private assessConfidence = createStoryAssessor([]);
   private filterButtons: Map<string, HTMLButtonElement> = new Map();
   private filterClickHandlers: Map<HTMLButtonElement, () => void> = new Map();
 
@@ -106,6 +109,7 @@ export class PositiveNewsFeedPanel extends Panel {
    */
   private renderCards(items: NewsItem[]): void {
     this.filteredItems = items;
+    this.assessConfidence = createStoryAssessor(this.allItems);
 
     if (items.length === 0) {
       // #6557: a settled empty state is authoritative content.
@@ -164,6 +168,7 @@ export class PositiveNewsFeedPanel extends Panel {
   <div class="positive-card-body">
     <div class="positive-card-meta">
       <span class="positive-card-source">${escapeHtml(item.source)}</span>
+      ${renderStoryConfidence(this.assessConfidence(item))}
       ${categoryBadgeHtml}
     </div>
     <span class="positive-card-title">${escapeHtml(item.title)}</span>

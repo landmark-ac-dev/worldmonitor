@@ -24,6 +24,7 @@
 export type PanelScopeBehaviour = 'filters' | 'global' | 'unsupported';
 
 export const PANEL_SCOPE_BEHAVIOUR: Readonly<Record<string, PanelScopeBehaviour>> = Object.freeze({
+  'family-facts': 'global', // The brief assesses the complete loaded news corpus.
   // Filters by country (Phase 1). News panels attribute a headline by the
   // country names it contains (shared/country-mention.js), advisories by their
   // ISO code, UCDP events by their country name, aviation by airport.

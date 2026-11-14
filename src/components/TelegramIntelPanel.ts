@@ -4,6 +4,7 @@ import { t } from '@/services/i18n';
 import { isDesktopRuntime } from '@/services/runtime';
 import { hasPremiumAccess, PanelGateReason } from '@/services/panel-gating';
 import { h, replaceChildren, safeHtml } from '@/utils/dom-utils';
+import { createStoryConfidenceBadge, UNCONFIRMED_SOCIAL_ASSESSMENT } from './news/confidence-label';
 import {
   TELEGRAM_TOPICS,
   clearTelegramIntelCache,
@@ -520,6 +521,7 @@ export class TelegramIntelPanel extends Panel {
       h('div', { className: 'telegram-intel-item-header' },
         h('div', { className: 'telegram-intel-channel-wrapper' },
           h('span', { className: 'telegram-intel-channel' }, item.channelTitle || item.channel),
+          createStoryConfidenceBadge(UNCONFIRMED_SOCIAL_ASSESSMENT),
           riskBadge,
           ...provenance.facts.map((fact) => h('span', { className: fact.className, title: fact.title }, fact.label)),
           tierBadge,

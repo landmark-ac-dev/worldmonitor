@@ -9,6 +9,7 @@ import { t } from '@/services/i18n';
 import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
 import { createFocusTrap, type FocusTrap } from '@/utils/focus-trap';
 import { declareOverlay } from '@/utils/open-modal';
+import { renderStoryConfidence } from './news/confidence-label';
 
 // Render-side display ceiling for a keyword spike's evidence list. Independent
 // of the emitter's own cap (MAX_SPIKE_ARTICLES) and deliberately higher, so it
@@ -499,6 +500,7 @@ export class SignalModal {
           return `
             <div class="signal-article-item">
               <span class="news-source">${escapeHtml(article.source ?? '')}</span>
+              ${renderStoryConfidence({ tier: 'Unconfirmed', reason: 'This signal excerpt lacks the original publication metadata needed for official or two-publisher confirmation.', sources: [] })}
               ${href
                 ? `<a class="news-title" href="${href}" target="_blank" rel="noopener noreferrer">${title}</a>`
                 : `<span class="news-title">${title}</span>`}

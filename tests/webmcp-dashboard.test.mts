@@ -39,12 +39,12 @@ const EXPECTED_VARIANT_PANEL_SNAPSHOTS: Record<DashboardVariant, {
   enabledCount: number;
   enabledSha256: string;
 }> = {
-  full: { enabledCount: 87, enabledSha256: 'f88a8223a3b1ae42a80a9a4d55678b4e0dbaf942632408fe0987e3a956bd5372' },
-  tech: { enabledCount: 38, enabledSha256: 'de9f78179aa2c75301883511ad0bab48fc67cba5cd4eb4445906abf17458a290' },
-  finance: { enabledCount: 60, enabledSha256: 'e9cbe30455e107add242019de29d44335abf9da2a8a44c9c204076ed279bcfe8' },
-  commodity: { enabledCount: 33, enabledSha256: 'b534510a2e814392e3966beb211e300e75a2b33f05c283613dd4f6cee50ddfe0' },
+  full: { enabledCount: 88, enabledSha256: '086259ce80eba9be9f57b7e6cb88a25da487ce573e34dc5202110ccca3fd4366' },
+  tech: { enabledCount: 39, enabledSha256: '7b9547bacbbc43491a83848326ee9e4a416ed370169620bdc6ae5c8d8b7ae28b' },
+  finance: { enabledCount: 61, enabledSha256: 'd0da523609f162433fe095c94d1d4a788235b5996ed9be14b672c65b9d79a693' },
+  commodity: { enabledCount: 34, enabledSha256: '3f0d2d1c86db767c481138661b39219e49659affb130bb6af1e21943b43426a2' },
   happy: { enabledCount: 10, enabledSha256: 'f62bbf19c2f7ca75fefeb12a7ba32da991a72f494f91e6d310910d5b7a0468ad' },
-  energy: { enabledCount: 27, enabledSha256: '9883327d2f1e0547b4111b469e21960954664f886aace434760d519e8bee3ed6' },
+  energy: { enabledCount: 28, enabledSha256: '032fd6225b9d611bfb73befc7240c9b81f53b296b6e4b8a53aaa0896afbb4a37' },
 };
 
 const EXPECTED_VARIANT_DEFAULT_SNAPSHOTS: Record<DashboardVariant, {
@@ -52,12 +52,12 @@ const EXPECTED_VARIANT_DEFAULT_SNAPSHOTS: Record<DashboardVariant, {
   enabled: number;
   sha256: string;
 }> = {
-  full: { total: 113, enabled: 87, sha256: '3f505fbc4a646f31597486637d5677782f0c81c901a0f28b0404744e0287bfbe' },
-  tech: { total: 41, enabled: 38, sha256: '43d7c788ff599baae171f7f46532653370e03ca4d322a8e6614f9f0a1cee5045' },
-  finance: { total: 69, enabled: 60, sha256: 'bb4ad5038f29080ee1631ebce59596da8ef9ae6f88932f0a4e06b1087be141b7' },
-  commodity: { total: 36, enabled: 33, sha256: 'cc9e0b178dec33dff354a1eea95b5b215302fc7ce685b3d92b82a356df6d6bee' },
-  happy: { total: 10, enabled: 10, sha256: '197a73a578d8734d49e844e0a83b89204d5a6fc6b973b1ed698272d846a2c308' },
-  energy: { total: 29, enabled: 27, sha256: '8357481a08eab013dda9ed9e201f6eb69c7656c8ef080b7c432429251a7dd2c3' },
+  full: { total: 114, enabled: 88, sha256: '140a85edc55d049fd38c66902388654ad511f209e67cd6e8caf945b35e456606' },
+  tech: { total: 42, enabled: 39, sha256: 'b7e27165dfef0b327ec29c684ec0adcaa1da2d959c1fcbcdfacf06d9c622906b' },
+  finance: { total: 70, enabled: 61, sha256: '9c979dcc992d42cedd330d4aac1eed691205975ff5eb873fdfcc72d9b874619b' },
+  commodity: { total: 37, enabled: 34, sha256: 'fe15fa62a6a1e460835283903a286d9961617f06a924002fc83e058f435f8bd8' },
+  happy: { total: 11, enabled: 10, sha256: 'a057af7d0d4512c45a83d5aa5061295849073505b99fc2a36fec63bf2816a9e4' },
+  energy: { total: 30, enabled: 28, sha256: '4857884bdf268b87a8a346b2bbf7bbbe2abc805b5f7dd2b4deb8de3d59dbd09e' },
 };
 
 function makeContext(
@@ -221,7 +221,7 @@ describe('WebMCP live dashboard bindings', () => {
     const entitled = listWebMcpDashboardPanels(ctx, 'full', { variant: 'full', limit: 8 }, {
       isPanelAllowed: () => true,
     });
-    assert.equal(entitled.total, 113);
+    assert.equal(entitled.total, 114);
     assert.equal(entitled.variant, 'full');
     assert.equal(entitled.hasMore, true);
 
@@ -251,7 +251,7 @@ describe('WebMCP live dashboard bindings', () => {
       cursor = page.nextCursor;
     }
     const ids = pages.flatMap((page) => page.panels.map((panel) => panel.id));
-    assert.equal(new Set(ids).size, 113);
+    assert.equal(new Set(ids).size, 114);
     assert.ok(ids.includes('windy-webcams'));
 
     const gatedPages = [];

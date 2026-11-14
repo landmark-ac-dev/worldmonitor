@@ -309,6 +309,7 @@ export function variantSwitcherHref(
 // lift these defaults into one shared table imported by both the `Panel`
 // constructor and this map, removing the duplication entirely (see #4490).
 export const DEFERRED_PANEL_NATURAL_FOOTPRINTS: Readonly<Record<string, DeferredPanelShellFootprint>> = {
+  'family-facts': { rowSpan: 2, className: 'panel-wide' },
   cii: { rowSpan: 2 },
   'chat-analyst': { rowSpan: 2 },
   'china-corridors': { rowSpan: 2, className: 'panel-wide' },
@@ -3053,6 +3054,7 @@ export class PanelLayoutManager implements AppModule {
     // render into and every feed it fetches is waste (#5376).
     const registered = this.lazyImportedPanel(panelKey, () => import('@/components/NewsPanel'), 'NewsPanel', (NewsPanel) => {
       const panel = new NewsPanel(panelKey, label, tooltip);
+      panel.setConfidenceCorpusProvider(() => this.ctx.allNews);
       this.attachRelatedAssetHandlers(panel);
       panel.setRiskScoreGetter(PanelLayoutManager.computeEventRisk);
       this.ctx.newsPanels[categoryKey] = panel;
@@ -3566,6 +3568,12 @@ export class PanelLayoutManager implements AppModule {
     }
 
     this.lazyDefaultPanel('gdelt-intel', () => import('@/components/GdeltIntelPanel'), 'GdeltIntelPanel');
+
+    this.lazyImportedPanel('family-facts', () => import('@/components/FamilyFactsPanel'), 'FamilyFactsPanel', (FamilyFactsPanel) => {
+      const panel = new FamilyFactsPanel();
+      if (this.ctx.allNews.length > 0) panel.updateNews(this.ctx.allNews);
+      return panel;
+    });
 
     this.lazyPanel('deduction', () =>
       this.importPanel(

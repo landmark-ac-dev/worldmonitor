@@ -296,11 +296,12 @@ A minimum of 10 historical samples is required before anomalies are reported, pr
 
 ### Breaking News Alert Pipeline
 
-The dashboard currently wires two independent producer paths into the breaking news banner:
+The dashboard uses a family pattern producer for news and a separate OREF siren producer. The legacy single-item RSS producer remains available to other callers, but the dashboard news loader no longer invokes it:
 
 | Origin               | Trigger                                                        | Example                                      |
 | -------------------- | -------------------------------------------------------------- | -------------------------------------------- |
-| **RSS alert**        | News item with `isAlert: true` and threat level critical/high  | Reuters flash: missile strike confirmed       |
+| **Family pattern**  | At least two distinct disruptions across two domains, supported by Confirmed or Credible reports within six hours | Flight disruption and banking outage |
+| **RSS alert**        | Legacy producer: news item with `isAlert: true` and threat level critical/high | A qualifying RSS headline from a legacy caller |
 | **OREF siren**       | Israel Home Front Command issues incoming rocket/missile alert | Rocket barrage detected in northern Israel   |
 
 Keyword spikes, hotspot escalations, and military surges remain inputs to correlation and anomaly products; they do not currently dispatch the breaking-news banner. Their reserved names in the `BreakingAlert` origin type do not make them active producers.
@@ -308,7 +309,10 @@ Keyword spikes, hotspot escalations, and military surges remain inputs to correl
 **Anti-noise safeguards**:
 
 - **Shared per-event dedup** — each producer creates a stable event key; repeated alerts for the same event are suppressed for 30 minutes
-- **RSS global cooldown** — before an RSS alert fires, the latest dispatched alert (RSS or OREF) starts a 60-second cooldown; a critical RSS item may override only a cooldown started by a high-severity alert
+- **Family evidence gate** — the five domains are aviation, banking/finance, telecom, cyber, and power. A single headline never triggers a pattern. Confirmed requires a registered official source name paired with its approved URL; Credible requires the same headline from at least two of AP, Reuters, The Washington Post, The New York Times, and BBC. The current narrow headline matcher excludes ambiguous, historical, hypothetical, denied, or resolved disruptions; different wording can remain unconfirmed even when the underlying event is real
+- **Family freshness and settings** — only reports with known timestamps in the past six hours qualify. The producer waits for a complete fresh news snapshot, respects the enabled setting and startup/global cooldowns, and stays silent under `critical-only`
+- **Family repetition and delivery** — each domain combination alerts at most once per browser session. The notice links evidence for each represented domain, uses no sound, and stays in the browser; it is not sent to the external notification relay. Reports occurring in the same window do not establish a shared cause
+- **RSS global cooldown** — before an RSS alert fires, the latest dispatched alert starts a 60-second cooldown; a critical RSS item may override only a cooldown started by a high-severity alert
 - **RSS recency gate** — items older than 15 minutes at processing time are silently dropped, preventing stale events from generating alerts after a reconnection
 - **RSS source tier gating** — Tier 3+ sources (niche outlets, aggregators) require a non-keyword classification (`threat.source` is `ml` or `llm`) to fire an alert; Tier 1–2 sources bypass this gate
 - **RSS story-phase gate** — sustained and fading stories are suppressed; the banner is reserved for breaking/developing stories or items without story metadata
@@ -318,7 +322,7 @@ Keyword spikes, hotspot escalations, and military surges remain inputs to correl
 - **RSS user sensitivity control** — configurable between `critical-only` (only critical severity fires) and `critical-and-high` (critical and high severities both fire)
 - **OREF direct escalation** — OREF siren alerts are exempt from the RSS gates and global cooldown; any non-empty siren batch raises a critical alert when alerts are enabled and the event is not a duplicate
 
-When an alert passes the gates that apply to its producer, the system dispatches a `wm:breaking-news` CustomEvent on `document`, which the Breaking News Banner consumes to display a persistent top-of-screen notification. Optional browser Notification API popups and an audio chime are available as user settings. Clicking an RSS-sourced banner scrolls to the RSS panel and applies a 1.5-second flash highlight animation.
+When an alert passes its producer's gates, the system dispatches a `wm:breaking-news` CustomEvent on `document`. The Breaking News Banner shows a dismissible notice. A family pattern notice opens the **What's actually true** panel and keeps evidence links independently clickable. Other origins retain their existing sound setting and source-panel navigation.
 
 ---
 

@@ -1,0 +1,42 @@
+.story-confidence {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.confidence-confirmed { border-color: #518f80; }
+.confidence-credible { border-color: #6d8ca6; }
+.confidence-unconfirmed { border-style: dashed; }
+
+[data-panel="family-facts"] .panel-content { line-height: 1.6; }
+[data-panel="family-facts"] p { margin: 0 0 10px; }
+.family-facts-coverage { color: var(--text-dim); font-size: 11px; }
+.family-facts-lines { margin: 0; padding-inline-start: 18px; }
+.family-facts-lines li, .family-facts-pattern li { margin-bottom: 12px; overflow-wrap: anywhere; }
+.family-facts-sources { display: block; font-size: 11px; }
+.family-facts-sources a { color: var(--text-secondary); text-decoration: underline; }
+.family-facts-pattern { border-block: 1px solid var(--border); padding: 12px 0; margin: 12px 0; }
+.family-facts-pattern h3 { font-size: 12px; margin: 0 0 8px; }
+.family-facts-pattern[data-alert="true"] { border-inline-start: 3px solid #6d8ca6; padding-inline-start: 10px; }
+.family-facts-policy { margin-bottom: 14px; }
+.family-facts-policy summary { cursor: pointer; margin-bottom: 8px; }
+.copy-paste-check { border-top: 1px solid var(--border); padding-top: 12px; }
+.copy-paste-check textarea {
+  width: 100%; min-height: 100px; box-sizing: border-box; resize: vertical;
+  background: var(--input-bg); color: var(--text); border: 1px solid var(--border-strong);
+  padding: 8px; font: inherit;
+}
+.copy-paste-check button {
+  padding: 7px 10px; margin: 6px 6px 6px 0; background: var(--surface-hover);
+  color: var(--text); border: 1px solid var(--border-strong); border-radius: 3px; cursor: pointer;
+}
+.copy-paste-check pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+.copy-paste-check a { color: var(--text-secondary); text-decoration: underline; }
+.copy-paste-check input { max-width: 100%; }

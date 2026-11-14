@@ -109,7 +109,7 @@ import {
   mergeStockAnalysisHistory,
   type StockAnalysisHistory,
 } from '@/services/stock-analysis-history';
-import { checkBatchForBreakingAlerts, dispatchOrefBreakingAlert } from '@/services/breaking-news-alerts';
+import { checkFamilyPatternForBreakingAlerts, dispatchOrefBreakingAlert } from '@/services/breaking-news-alerts';
 import { displayPubDateMs, effectivePubDateMs } from '@/services/feed-date';
 import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid, clusterNewsWithWorkerFallback } from '@/services/clustering';
@@ -778,6 +778,8 @@ export class DataLoaderManager implements AppModule {
       });
       if (this.committedNewsGeneration === generation) {
         this.ctx.allNews = [...this.ctx.allNews, ...added];
+        this.callPanel('family-facts', 'updateNews', this.ctx.allNews, this.committedNewsServedStale);
+        this.applyTimeRangeFilterToNewsPanels();
         this.updateMonitorResults();
       } else {
         items.push(...added);
@@ -1830,15 +1832,8 @@ export class DataLoaderManager implements AppModule {
         // that classifyEvent writes to. Re-firing classifyEvent from every client wastes
         // edge requests even when they're Redis cache hits.
 
-        // #7084: a stale digest replay re-delivers items that already had
-        // their alert opportunity when they were served fresh. The 15-minute
-        // recency gate inside the checker bounds the exposure, but a replay
-        // younger than that would re-fire banners for old events — gate on
-        // the exact selected body's effective freshness, including browser
-        // retained/persisted fallbacks whose stored coverage may say fresh.
-        if (this.isCurrentNewsLoad(generation) && !digestServedStale) {
-          checkBatchForBreakingAlerts(items);
-        }
+        // News notifications wait for the complete committed cross-category
+        // snapshot below; a single category cannot establish a family pattern.
         this.flashMapForNews(items);
         this.renderNewsForCategory(category, items);
         // #9796: the enabled-source filter dropped digest items, so the panel
@@ -1889,10 +1884,6 @@ export class DataLoaderManager implements AppModule {
             .catch((err) => {
               console.warn('[News] ingestTrendingHeadlines failed (chunk load?):', err);
             });
-          // Same #7084 gate as the home digest: a stale replay must not re-fire banners.
-          if (this.isCurrentNewsLoad(generation) && !crossEdition.servedStale) {
-            checkBatchForBreakingAlerts(digestItems);
-          }
           this.flashMapForNews(digestItems);
           const items = mergeSourceFairNewsItems([...digestItems, ...carried], {
             maxItems: this.customCategoryMergedItemLimit,
@@ -1990,7 +1981,6 @@ export class DataLoaderManager implements AppModule {
         onBatch: (partialItems) => {
           scheduleRender(partialItems);
           this.flashMapForNews(partialItems);
-          if (this.isCurrentNewsLoad(generation)) checkBatchForBreakingAlerts(partialItems);
         },
       });
 
@@ -2101,11 +2091,6 @@ export class DataLoaderManager implements AppModule {
       const intel = (digest.categories['intel']?.items ?? [])
         .map(protoItemToNewsItem)
         .filter(i => enabledIntelNames.has(i.source));
-      // #7084: same effective-freshness and request-generation gate as the
-      // category digest branch above.
-      if (this.isCurrentNewsLoad(generation) && !digestServedStale) {
-        checkBatchForBreakingAlerts(intel);
-      }
       this.renderNewsForCategory('intel', intel);
       // #9796: as for the category digest above. The server reads intel
       // sources from the full edition.
@@ -2168,7 +2153,6 @@ export class DataLoaderManager implements AppModule {
       return [];
     }
 
-    if (this.isCurrentNewsLoad(generation)) checkBatchForBreakingAlerts(intel);
     this.renderNewsForCategory('intel', intel);
     if (intelPanel && options.recordBaselineSample) {
       try {
@@ -2484,6 +2468,13 @@ export class DataLoaderManager implements AppModule {
     this.ctx.allNews = collectedNews;
     const committedServedStale = [...categoryServedStale.values()].some(Boolean) || intelServedStale;
     this.commitNewsFreshness(generation, committedServedStale);
+    // Confidence uses the complete committed corpus, including reports from other
+    // categories. Queue the brief even when clustering fails or its panel mounts late.
+    this.callPanel('family-facts', 'updateNews', collectedNews, committedServedStale);
+    // Assess only a committed, fresh cross-category snapshot. Partial batches
+    // and single headlines must not independently interrupt the family view.
+    if (!committedServedStale) checkFamilyPatternForBreakingAlerts(collectedNews);
+    this.applyTimeRangeFilterToNewsPanels();
     // Record what this run covered — but only when it actually landed something for
     // the gate to protect. A run counts as landed when the digest COVERED at least
     // one preset category (authoritative even where that bucket came back empty),

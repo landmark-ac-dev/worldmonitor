@@ -14,6 +14,7 @@ export { MINING_SITES, PROCESSING_PLANTS, COMMODITY_PORTS } from '@/config/commo
 // PANEL CONFIGURATION — Commodity-only panels
 // ─────────────────────────────────────────────────────────────────────────────
 export const DEFAULT_PANELS: Record<string, PanelConfig> = {
+  'family-facts': { name: "What's actually true", enabled: true, priority: 1 },
   // Core
   map: { name: 'Commodity & Mining Map', enabled: true, priority: 1 },
   'live-news': { name: 'Commodity Headlines', enabled: true, priority: 1 },
